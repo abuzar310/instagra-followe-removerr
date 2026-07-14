@@ -1,0 +1,96 @@
+export interface Follower {
+  id: string;
+  username: string;
+  full_name: string;
+  biography: string;
+  followers_count: number;
+  following_count: number;
+  posts_count: number;
+  is_private: boolean;
+  is_verified: boolean;
+  has_profile_pic: boolean;
+  profile_pic_url: string;
+  account_age_days: number | null;
+  external_url: string | null;
+  is_business: boolean;
+  email: string | null;
+  phone: string | null;
+
+  // computed
+  suspicion_score: number;
+  suspicion_reasons: string[];
+  reviewed: boolean;
+  approved: boolean | null;
+  notes: string;
+  created_at: string;
+  import_batch: string;
+}
+
+export interface Rule {
+  id: string;
+  name: string;
+  field: RuleField;
+  operator: RuleOperator;
+  value: string;
+  points: number;
+  enabled: boolean;
+  color?: string;
+}
+
+export type RuleField =
+  | "following_count"
+  | "followers_count"
+  | "posts_count"
+  | "has_profile_pic"
+  | "username"
+  | "full_name"
+  | "biography"
+  | "account_age_days"
+  | "is_verified"
+  | "is_private"
+  | "is_business"
+  | "followers_following_ratio"
+  | "username_digit_count";
+
+export type RuleOperator = "gt" | "lt" | "eq" | "neq" | "contains" | "not_contains" | "is_true" | "is_false";
+
+export interface ImportBatch {
+  id: string;
+  filename: string;
+  count: number;
+  created_at: string;
+}
+
+export type SortField = "suspicion_score" | "followers_count" | "following_count" | "posts_count" | "username" | "created_at";
+export type SortOrder = "asc" | "desc";
+
+export interface ReviewFilters {
+  search: string;
+  sortField: SortField;
+  sortOrder: SortOrder;
+  minScore: number;
+  maxScore: number;
+  reviewed: "all" | "reviewed" | "unreviewed";
+  approved: "all" | "approved" | "rejected";
+  isPrivate: "all" | "private" | "public";
+  isVerified: "all" | "verified" | "unverified";
+  hasProfilePic: "all" | "yes" | "no";
+  minFollowers: number;
+  maxFollowers: number;
+  minFollowing: number;
+  maxFollowing: number;
+  minPosts: number;
+  maxPosts: number;
+}
+
+export interface DashboardStats {
+  total: number;
+  reviewed: number;
+  flagged: number;
+  highRisk: number;
+  avgScore: number;
+  privateCount: number;
+  verifiedCount: number;
+  zeroPosts: number;
+  noProfilePic: number;
+}

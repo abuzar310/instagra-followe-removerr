@@ -1,26 +1,142 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: #121214;
+  --color-card: #18181b;
+  --color-card-hover: #1f1f23;
+  --color-border: #27272a;
+  --color-accent: #6366f1;
+  --color-accent-hover: #818cf8;
+  --color-danger: #ef4444;
+  --color-warning: #eab308;
+  --color-success: #22c55e;
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #52525b;
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #27272a transparent;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+
+/* ── custom utility classes ── */
+.card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+}
+
+.card:hover {
+  background: #1f1f23;
+}
+
+.input {
+  background: #121214;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #fafafa;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: #6366f1;
+}
+
+.select {
+  background: #121214;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #fafafa;
+  outline: none;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn-primary {
+  background: #6366f1;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #818cf8;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #a1a1aa;
+  border-color: #27272a;
+}
+
+.btn-ghost:hover {
+  background: #1f1f23;
+  color: #fafafa;
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-red { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.badge-orange { background: rgba(249, 115, 22, 0.12); color: #f97316; }
+.badge-yellow { background: rgba(234, 179, 8, 0.12); color: #eab308; }
+.badge-blue { background: rgba(99, 102, 241, 0.12); color: #818cf8; }
+.badge-green { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
+.badge-gray { background: rgba(161, 161, 170, 0.1); color: #a1a1aa; }
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: #1f1f23;
+  border: 1px solid #27272a;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #52525b;
+}
+
+@media (max-width: 639px) {
+  .card { border-radius: 8px; }
 }
