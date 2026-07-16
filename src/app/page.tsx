@@ -4,7 +4,7 @@ import { useData } from "@/hooks/useData";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { Upload, Users, AlertTriangle, CheckCircle, Activity, Database } from "lucide-react";
+import { Upload, Users, AlertTriangle, CheckCircle, Activity, Database, LogIn } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardPage() {
@@ -48,7 +48,7 @@ export default function DashboardPage() {
           <h1 className="text-xl font-semibold text-white">Dashboard</h1>
           <p className="text-sm text-[#a1a1aa] mt-0.5">
             {isEmpty
-              ? "Import your follower data to get started"
+              ? "Connect Instagram to get started"
               : `${followers.length.toLocaleString()} profiles · ${stats.flagged} flagged · ${stats.reviewed} reviewed`
             }
           </p>
@@ -76,12 +76,18 @@ export default function DashboardPage() {
           <Database size={48} className="text-[#27272a] mb-4" />
           <h2 className="text-lg font-semibold text-white/60 mb-2">No data imported yet</h2>
           <p className="text-sm text-[#52525b] max-w-sm mb-6">
-            Import a CSV or JSON export from Instagram to analyze your followers and find suspicious accounts.
+            Connect your Instagram account or import a CSV/JSON export to analyze your followers.
           </p>
-          <Link href="/import" className="btn btn-primary">
-            <Upload size={16} />
-            Import Data
-          </Link>
+          <div className="flex gap-3">
+            <Link href="/connect" className="btn btn-primary">
+              <LogIn size={16} />
+              Connect Instagram
+            </Link>
+            <Link href="/import" className="btn btn-ghost">
+              <Upload size={16} />
+              Import File
+            </Link>
+          </div>
         </div>
       ) : (
         <>

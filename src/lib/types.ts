@@ -83,6 +83,47 @@ export interface ReviewFilters {
   maxPosts: number;
 }
 
+/* ── Instagram Session ── */
+
+export interface InstagramCookies {
+  sessionid: string
+  csrftoken: string
+  ds_user_id: string
+  rur?: string
+}
+
+export type UnfollowStatus = "queued" | "processing" | "done" | "error"
+
+export interface UnfollowEntry {
+  profileId: string
+  username: string
+  fullName: string
+  status: UnfollowStatus
+  error?: string
+  unfollowedAt?: string
+}
+
+export interface SchedulerState {
+  isRunning: boolean
+  isPaused: boolean
+  cycleWindowMs: number
+  entries: UnfollowEntry[]
+  startTime: string | null
+  estimatedEndTime: string | null
+  completedCount: number
+  totalCount: number
+  nextAt: string | null
+}
+
+export interface FetchProgress {
+  phase: "followers" | "following" | "analyzing" | "done" | "error"
+  followersFetched: number
+  followingFetched: number
+  totalFollowers: number
+  totalFollowing: number
+  error?: string
+}
+
 export interface DashboardStats {
   total: number;
   reviewed: number;

@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright automation scripts — session & data files
+scripts/.instagram-session.json
+scripts/instagram-data.json
+scripts/.unfollow-progress.json
+scripts/unfollow-results.json
+scripts/to-unfollow.json

@@ -1,14 +1,16 @@
 "use client";
 
-import { ChevronRight, LayoutDashboard, Users, SlidersHorizontal, Upload } from "lucide-react";
+import { ChevronRight, LayoutDashboard, Users, SlidersHorizontal, Upload, LogIn, UserMinus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/import", label: "Import", icon: Upload },
+  { href: "/connect", label: "Connect", icon: LogIn },
   { href: "/review", label: "Review", icon: Users },
   { href: "/rules", label: "Rules", icon: SlidersHorizontal },
+  { href: "/unfollow", label: "Unfollow", icon: UserMinus },
 ];
 
 export default function Sidebar({ collapsed }: { collapsed: boolean; onToggle: () => void }) {
