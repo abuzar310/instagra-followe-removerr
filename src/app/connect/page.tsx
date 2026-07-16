@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { generateScraperScript } from "@/lib/ig-scraper-script"
 import {
   getFollowers, saveInstagramCookies, getInstagramCookies,
-  clearInstagramCookies,
+  clearInstagramCookies, getWhitelist,
 } from "@/lib/store"
 import type { InstagramCookies, Follower } from "@/lib/types"
 import { v4 as uuid } from "uuid"
@@ -23,6 +23,7 @@ export default function ConnectPage() {
   const [result, setResult] = useState<{
     followersCount: number
     followingCount: number
+    skippedWhitelisted: number
   } | null>(null)
   const [showCookieTab, setShowCookieTab] = useState(false)
   const pasteRef = useRef<HTMLTextAreaElement>(null)
@@ -80,7 +81,23 @@ export default function ConnectPage() {
     // Find non-followbacks
     const followerIds = new Set(followers.map((u: any) => String(u.pk || u.id)))
     const nonFollowbacks = following.filter((u: any) => !followerIds.has(String(u.pk || u.id)))
-    const targetProfiles = nonFollowbacks.length > 0 ? nonFollowbacks : following
+    let targetProfiles = nonFollowbacks.length > 0 ? nonFollowbacks : following
+
+    // Skip whitelisted accounts — the user already decided to keep these
+    const whitelist = getWhitelist()
+    const wlIds = new Set(whitelist.map(w => w.id))
+    const wlUsernames = new Set(whitelist.map(w => w.username.toLowerCase()))
+    const beforeWl = targetProfiles.length
+    targetProfiles = targetProfiles.filter((u: any) => {
+      const id = String(u.pk || u.id || "")
+      const username = String(u.username || "").toLowerCase()
+      return !wlIds.has(id) && !wlUsernames.has(username)
+    })
+    const skippedWhitelisted = beforeWl - targetProfiles.length
+
+    // Skip profiles already in the list (re-fetches shouldn't duplicate)
+    const existingIds = new Set(getFollowers().map(f => f.id))
+    targetProfiles = targetProfiles.filter((u: any) => !existingIds.has(String(u.pk || u.id || "")))
 
     // Convert to our Follower format and score
     const rules = await import("@/lib/store").then(m => m.getRules())
@@ -140,6 +157,7 @@ export default function ConnectPage() {
     setResult({
       followersCount: followers.length,
       followingCount: following.length,
+      skippedWhitelisted,
     })
     setStep("done")
     setImporting(false)
@@ -366,6 +384,11 @@ export default function ConnectPage() {
             Fetched <strong>{result.followersCount}</strong> followers and{" "}
             <strong>{result.followingCount}</strong> following —{" "}
             <strong>{flaggedCount}</strong> flagged as suspicious
+            {result.skippedWhitelisted > 0 && (
+              <span className="block mt-1 text-[#22c55e]">
+                {result.skippedWhitelisted} whitelisted account{result.skippedWhitelisted > 1 ? "s" : ""} skipped
+              </span>
+            )}
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <button className="btn btn-primary" onClick={goToReview}>

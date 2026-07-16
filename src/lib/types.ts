@@ -124,6 +124,14 @@ export interface FetchProgress {
   error?: string
 }
 
+export interface WhitelistEntry {
+  id: string;          // Instagram pk — stable across fetches
+  username: string;
+  full_name: string;
+  profile_pic_url?: string;
+  added_at: string;
+}
+
 export interface DashboardStats {
   total: number;
   reviewed: number;

@@ -3,9 +3,10 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useData } from "@/hooks/useData";
 import {
-  applyFilters, getDefaultFilters, exportCSV, exportJSON,
+  applyFilters, getDefaultFilters, exportCSV, exportJSON, addToWhitelist, removeFromWhitelist,
 } from "@/lib/store";
 import type { ReviewFilters, Follower } from "@/lib/types";
+import Avatar from "@/components/Avatar";
 import {
   Users, Search, ArrowUpDown, CheckCircle, XCircle, ChevronLeft, ChevronRight,
   Download, MoreHorizontal, AlertTriangle, Eye, X,
@@ -61,15 +62,36 @@ export default function ReviewPage() {
   };
 
   const handleApprove = (id: string) => {
+    // Approving an unfollow means it should NOT be whitelisted (undo a prior reject)
+    removeFromWhitelist([id]);
     updateFollower(id, { reviewed: true, approved: true });
   };
 
   const handleReject = (id: string) => {
+    // "Keep this account" — whitelist it so future fetches skip it entirely
+    const f = followers.find((x) => x.id === id);
+    if (f) addToWhitelist([{ id: f.id, username: f.username, full_name: f.full_name, profile_pic_url: f.profile_pic_url }]);
     updateFollower(id, { reviewed: true, approved: false });
   };
 
   const handleReset = (id: string) => {
+    removeFromWhitelist([id]);
     updateFollower(id, { reviewed: false, approved: null });
+  };
+
+  const handleBulkApprove = () => {
+    if (selectedIds.size === 0) return;
+    removeFromWhitelist(Array.from(selectedIds));
+    selectedIds.forEach((id) => updateFollower(id, { reviewed: true, approved: true }));
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkReject = () => {
+    if (selectedIds.size === 0) return;
+    const toKeep = followers.filter((f) => selectedIds.has(f.id));
+    addToWhitelist(toKeep.map((f) => ({ id: f.id, username: f.username, full_name: f.full_name, profile_pic_url: f.profile_pic_url })));
+    selectedIds.forEach((id) => updateFollower(id, { reviewed: true, approved: false }));
+    setSelectedIds(new Set());
   };
 
   const handleBulkDelete = () => {
@@ -163,9 +185,17 @@ export default function ReviewPage() {
             )}
           </div>
           {selectedIds.size > 0 && (
-            <button className="btn btn-danger text-sm" onClick={handleBulkDelete}>
-              Delete {selectedIds.size}
-            </button>
+            <>
+              <button className="btn text-sm bg-[#22c55e] text-white hover:bg-[#16a34a]" onClick={handleBulkApprove} title="Approve unfollow for selected — they will be unfollowed">
+                <CheckCircle size={14} /> Approve {selectedIds.size}
+              </button>
+              <button className="btn text-sm bg-[#ef4444] text-white hover:bg-[#dc2626]" onClick={handleBulkReject} title="Keep selected — whitelisted, never shown again">
+                <XCircle size={14} /> Keep {selectedIds.size}
+              </button>
+              <button className="btn btn-ghost text-sm" onClick={handleBulkDelete} title="Remove rows from list only — will reappear on next fetch">
+                Delete {selectedIds.size}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -251,8 +281,13 @@ export default function ReviewPage() {
                     />
                   </td>
                   <td className="px-3 py-3">
-                    <span className="font-medium text-white">@{f.username}</span>
-                    {f.full_name && <span className="text-[#52525b] ml-1.5 text-xs hidden lg:inline">{f.full_name}</span>}
+                    <div className="flex items-center gap-2.5">
+                      <Avatar src={f.profile_pic_url} username={f.username} size={30} />
+                      <div className="min-w-0">
+                        <span className="font-medium text-white">@{f.username}</span>
+                        {f.full_name && <span className="text-[#52525b] ml-1.5 text-xs hidden lg:inline">{f.full_name}</span>}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-3 py-3 text-[#a1a1aa] hidden sm:table-cell">{f.followers_count.toLocaleString()}</td>
                   <td className="px-3 py-3 text-[#a1a1aa] hidden md:table-cell">{f.following_count.toLocaleString()}</td>
@@ -336,11 +371,14 @@ export default function ReviewPage() {
         >
           <div className="card w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between mb-5">
-              <div>
-                <h2 className="text-lg font-semibold text-white">@{preview.username}</h2>
-                {preview.full_name && (
-                  <p className="text-sm text-[#a1a1aa]">{preview.full_name}</p>
-                )}
+              <div className="flex items-center gap-3">
+                <Avatar src={preview.profile_pic_url} username={preview.username} size={52} />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">@{preview.username}</h2>
+                  {preview.full_name && (
+                    <p className="text-sm text-[#a1a1aa]">{preview.full_name}</p>
+                  )}
+                </div>
               </div>
               <button className="btn btn-ghost btn-sm p-1.5" onClick={() => { saveNotes(); setPreview(null); }}>
                 <X size={16} />

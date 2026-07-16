@@ -1,4 +1,4 @@
-import type { Follower, Rule, ImportBatch, ReviewFilters, SortField, SortOrder, DashboardStats, InstagramCookies, SchedulerState, UnfollowEntry, UnfollowStatus } from "./types";
+import type { Follower, Rule, ImportBatch, ReviewFilters, SortField, SortOrder, DashboardStats, InstagramCookies, SchedulerState, UnfollowEntry, UnfollowStatus, WhitelistEntry } from "./types";
 import { v4 as uuid } from "uuid";
 
 const STORAGE_KEY = "ifr_followers";
@@ -7,6 +7,7 @@ const BATCHES_KEY = "ifr_batches";
 const IG_COOKIES_KEY = "ifr_ig_cookies";
 const SCHEDULER_KEY = "ifr_scheduler";
 const UNFOLLOW_QUEUE_KEY = "ifr_unfollow_queue";
+const WHITELIST_KEY = "ifr_whitelist";
 
 // ── Default rules ──
 const DEFAULT_RULES: Rule[] = [
@@ -118,7 +119,19 @@ export function scoreAll(rules?: Rule[]): Follower[] {
 }
 
 // ── Import ──
-export function importFollowers(raw: Record<string, any>[], filename: string): { count: number; batchId: string } {
+export function importFollowers(raw: Record<string, any>[], filename: string): { count: number; batchId: string; skippedWhitelisted: number } {
+  // Drop whitelisted accounts (match by IG pk/id or username) before anything else
+  const whitelist = getWhitelist();
+  const wlIds = new Set(whitelist.map((w) => w.id));
+  const wlUsernames = new Set(whitelist.map((w) => w.username.toLowerCase()));
+  const beforeCount = raw.length;
+  raw = raw.filter((r) => {
+    const id = String(r.pk ?? r.id ?? "");
+    const username = String(r.username || r.user || r.handle || "").toLowerCase();
+    return !(id && wlIds.has(id)) && !(username && wlUsernames.has(username));
+  });
+  const skippedWhitelisted = beforeCount - raw.length;
+
   const batchId = uuid();
   const batch: ImportBatch = { id: batchId, filename, count: raw.length, created_at: new Date().toISOString() };
   const batches = read<ImportBatch[]>(BATCHES_KEY, []);
@@ -162,7 +175,7 @@ export function importFollowers(raw: Record<string, any>[], filename: string): {
   });
 
   write(STORAGE_KEY, [...mapped, ...existing]);
-  return { count: mapped.length, batchId };
+  return { count: mapped.length, batchId, skippedWhitelisted };
 }
 
 export function clearAll() {
@@ -282,6 +295,42 @@ export function exportCSV(filtered: Follower[]) {
 
 export function exportJSON(filtered: Follower[]) {
   return JSON.stringify(filtered, null, 2);
+}
+
+/* ── Whitelist ──
+ * Accounts the user decided to keep. They are filtered out of every
+ * future import so a "keep" decision only ever has to be made once.
+ */
+
+export function getWhitelist(): WhitelistEntry[] {
+  return read<WhitelistEntry[]>(WHITELIST_KEY, []);
+}
+
+export function addToWhitelist(entries: { id: string; username: string; full_name?: string; profile_pic_url?: string }[]): WhitelistEntry[] {
+  const list = getWhitelist();
+  const existing = new Set(list.map((w) => w.id));
+  const now = new Date().toISOString();
+  for (const e of entries) {
+    if (existing.has(e.id)) continue;
+    list.push({ id: e.id, username: e.username, full_name: e.full_name || "", profile_pic_url: e.profile_pic_url, added_at: now });
+    existing.add(e.id);
+  }
+  write(WHITELIST_KEY, list);
+  return list;
+}
+
+export function removeFromWhitelist(ids: string[]): WhitelistEntry[] {
+  const list = getWhitelist().filter((w) => !ids.includes(w.id));
+  write(WHITELIST_KEY, list);
+  return list;
+}
+
+export function clearWhitelist(): void {
+  write(WHITELIST_KEY, []);
+}
+
+export function isWhitelisted(id: string): boolean {
+  return getWhitelist().some((w) => w.id === id);
 }
 
 /* ── Instagram Cookies ── */

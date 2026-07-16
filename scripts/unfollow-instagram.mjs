@@ -221,7 +221,7 @@ async function main() {
   log("✅ Session valid!");
 
   // ── Spread unfollows across a time window ──
-  const CYCLE_HOURS = 6; // Spread across 6 hours by default
+  const CYCLE_HOURS = 36; // Spread across 36 hours by default (safe for 930 accounts)
   const CYCLE_MS = CYCLE_HOURS * 60 * 60 * 1000;
   const avgInterval = CYCLE_MS / profiles.length;
   const baseWait = Math.max(8000, Math.floor(avgInterval * 0.7));

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, LayoutDashboard, Users, SlidersHorizontal, Upload, LogIn, UserMinus } from "lucide-react";
+import { ChevronRight, LayoutDashboard, Users, SlidersHorizontal, Upload, LogIn, UserMinus, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,6 +9,7 @@ const NAV = [
   { href: "/import", label: "Import", icon: Upload },
   { href: "/connect", label: "Connect", icon: LogIn },
   { href: "/review", label: "Review", icon: Users },
+  { href: "/whitelist", label: "Whitelist", icon: ShieldCheck },
   { href: "/rules", label: "Rules", icon: SlidersHorizontal },
   { href: "/unfollow", label: "Unfollow", icon: UserMinus },
 ];
