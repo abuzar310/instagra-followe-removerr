@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Instagram UI Unfollower v3
+ * Instagram UI Unfollower v4
  * ==========================
  *
  * Uses YOUR real browser to unfollow via the Instagram UI:
@@ -9,12 +9,15 @@
  *   2. Searches for each username in the dialog search box
  *   3. Clicks "Remove" → "Remove" in the confirmation
  *
- * No API calls — Instagram sees normal human behavior.
- * Uses Playwright locators (not brittle DOM evaluate).
+ * Modes:
+ *   --batch    Burst mode: remove 3-10 accounts (5s gap), then rest 15min, repeat
+ *   --test     Quick test: 1 account, no delays
+ *   (default)  Spread mode: even delays across set timeframe
  *
  * Usage:
  *   node scripts/unfollow-ui.mjs <profiles-file.json>
- *   node scripts/unfollow-ui.mjs --test <profiles-file.json>   ← quick test (1 account, no delays)
+ *   node scripts/unfollow-ui.mjs --test <profiles-file.json>
+ *   node scripts/unfollow-ui.mjs --batch <profiles-file.json>
  *
  * JSON format:
  *   [{ "username": "someuser" }, ...]  or  ["someuser", ...]
@@ -253,10 +256,11 @@ async function unfollowViaDialog(page, myUsername, username) {
 async function main() {
   const args = process.argv.slice(2);
   const isTest = args.includes("--test");
+  const isBatch = args.includes("--batch");
   const fileArg = args.find(a => !a.startsWith("--"));
 
   if (!fileArg) {
-    console.log("Usage: node scripts/unfollow-ui.mjs [--test] <profiles.json>");
+    console.log("Usage: node scripts/unfollow-ui.mjs [--test|--batch] <profiles.json>");
     process.exit(1);
   }
 
@@ -278,10 +282,20 @@ async function main() {
     console.log(`   🎯 Testing with @${profiles[0]?.username || "unknown"}`);
     console.log(`   ⚡ No delays, no progress save`);
     console.log("");
+  } else if (isBatch) {
+    console.log("");
+    console.log("╔══════════════════════════════════════════════╗");
+    console.log("║     🔥 BATCH MODE — Burst + Rest            ║");
+    console.log("╚══════════════════════════════════════════════╝");
+    console.log("");
+    console.log(`   🎯 ${profiles.length} accounts to unfollow`);
+    console.log(`   📦 Batch: 3-10 accounts (5s gap)`);
+    console.log(`   😴 Rest:  15 min between batches`);
+    console.log("");
   } else {
     console.log("");
     console.log("╔══════════════════════════════════════════════╗");
-    console.log("║       Instagram UI Unfollower v3            ║");
+    console.log("║       Instagram UI Unfollower v4            ║");
     console.log("╚══════════════════════════════════════════════╝");
     console.log("");
     console.log(`   🎯 ${profiles.length} accounts to unfollow`);
@@ -294,20 +308,33 @@ async function main() {
     process.exit(1);
   }
 
-  // ── Time estimate (not in test mode) ──
+  // ── Time estimate ──
   let baseWait = 5000;
   let jitterRange = 3000;
 
   if (!isTest) {
-    const CYCLE_HOURS = 36;
-    const CYCLE_MS = CYCLE_HOURS * 60 * 60 * 1000;
-    const avgInterval = CYCLE_MS / profiles.length;
-    baseWait = Math.max(60000, Math.floor(avgInterval * 0.8));
-    jitterRange = Math.max(20000, Math.floor(avgInterval * 0.4));
-    const totalHrs = Math.round((profiles.length * (baseWait + jitterRange / 2)) / 3600000 * 10) / 10;
-    console.log(`   ⏱ Estimated: ~${totalHrs} hours`);
-    console.log(`   ⏸ Delay: ${Math.round(baseWait / 1000)}-${Math.round((baseWait + jitterRange) / 1000)}s`);
-    console.log("");
+    if (isBatch) {
+      const BATCH_MIN = 3, BATCH_MAX = 10, BATCH_REST_MS = 900000;
+      const avgBatch = (BATCH_MIN + BATCH_MAX) / 2;
+      const batches = Math.ceil(profiles.length / avgBatch);
+      const workTime = profiles.length * 5000; // 5s per account
+      const restTime = Math.max(0, batches - 1) * BATCH_REST_MS;
+      const totalMs = workTime + restTime;
+      const totalHrs = Math.round(totalMs / 3600000 * 10) / 10;
+      console.log(`   ⏱ Estimated: ~${totalHrs} hours`);
+      console.log(`   📊 ~${batches} batches of ${BATCH_MIN}-${BATCH_MAX} accounts`);
+      console.log("");
+    } else {
+      const CYCLE_HOURS = 36;
+      const CYCLE_MS = CYCLE_HOURS * 60 * 60 * 1000;
+      const avgInterval = CYCLE_MS / profiles.length;
+      baseWait = Math.max(60000, Math.floor(avgInterval * 0.8));
+      jitterRange = Math.max(20000, Math.floor(avgInterval * 0.4));
+      const totalHrs = Math.round((profiles.length * (baseWait + jitterRange / 2)) / 3600000 * 10) / 10;
+      console.log(`   ⏱ Estimated: ~${totalHrs} hours`);
+      console.log(`   ⏸ Delay: ${Math.round(baseWait / 1000)}-${Math.round((baseWait + jitterRange) / 1000)}s`);
+      console.log("");
+    }
   }
 
   // ── Launch browser ──
@@ -365,76 +392,166 @@ async function main() {
   if (!isTest) {
     const saved = loadProgress();
     if (saved && saved.completed > 0) {
-      console.log(`\n📋 Saved progress: ${saved.completed}/${profiles.length} done.`);
+      console.log(`\n📋 Saved progress: ${saved.completed}/${profiles.length} done (${saved.errors} errors, ${saved.skipped} skipped)`);
       const ans = await ask("   Resume? (Y/n): ");
       if (ans.toLowerCase() !== "n") startIndex = saved.completed;
     }
   }
 
+  // ── Batch settings ──
+  const BATCH_MIN = 3;
+  const BATCH_MAX = 10;
+  const BATCH_REST_MS = 15 * 60 * 1000; // 15 min
+  const ACCOUNT_GAP_MS = 5000; // 5s between accounts in a batch
+
   // ── Unfollow loop ──
   let errors = 0;
   let skipped = 0;
+  let batchCount = 0;
 
-  for (let i = startIndex; i < profiles.length; i++) {
-    const p = profiles[i];
-    const username = p.username;
-    const label = `[${i + 1}/${profiles.length}]`;
-
-    // Update tab title
-    try {
-      await page.evaluate(
-        (n, t) => { document.title = `Unfollow ${n}/${t}`; },
-        i + 1, profiles.length
+  if (isBatch) {
+    // ── BATCH MODE: burst + rest ──
+    let i = startIndex;
+    while (i < profiles.length) {
+      batchCount++;
+      const remaining = profiles.length - i;
+      const batchSize = Math.min(
+        BATCH_MIN + Math.floor(Math.random() * (BATCH_MAX - BATCH_MIN + 1)),
+        remaining
       );
-    } catch {}
 
-    // ── Delay (skip in test mode) ──
-    if (i > 0 && !isTest) {
-      const delay = baseWait + Math.floor(Math.random() * jitterRange);
-      const mins = Math.round(delay / 60000 * 10) / 10;
-      const eta = new Date(Date.now() + (profiles.length - i) * (baseWait + jitterRange / 2));
-      log(`${label} ⏳ ${mins}min (ETA: ${eta.toLocaleTimeString()})...`);
-      const chunk = 10000;
-      const chunks = Math.floor(delay / chunk);
-      for (let w = 0; w < chunks; w++) await sleep(chunk);
-      if (delay % chunk > 0) await sleep(delay % chunk);
-    }
+      log(`📦 BATCH #${batchCount} — ${batchSize} accounts (${remaining - batchSize} remaining after)`);
 
-    // ── Unfollow ──
-    log(`${label} 🔍 @${username} — searching in Followers...`);
+      for (let b = 0; b < batchSize; b++) {
+        const p = profiles[i];
+        const username = p.username;
+        const label = `[${i + 1}/${profiles.length}]`;
 
-    try {
-      await unfollowViaDialog(page, myUsername, username);
-      log(`${label} ✅ @${username} — unfollowed!`);
-    } catch (err) {
-      const msg = err.message;
-      if (msg.includes("not found in Followers") || msg.includes("already removed") || msg.includes("not following you")) {
-        log(`${label} ⏭ @${username} — ${msg}`);
-        skipped++;
-      } else {
-        log(`${label} ❌ @${username} — ${msg}`);
-        errors++;
+        // Update tab title
+        try { await page.evaluate((n, t) => { document.title = `Unfollow ${n}/${t}`; }, i + 1, profiles.length); } catch {}
+
+        // Gap between accounts in batch (5s)
+        if (b > 0) {
+          const chunk = 1000;
+          const chunks = Math.floor(ACCOUNT_GAP_MS / chunk);
+          for (let w = 0; w < chunks; w++) await sleep(chunk);
+        }
+
+        // Unfollow
+        log(`${label} 🔍 @${username} — searching in Followers...`);
+
+        try {
+          await unfollowViaDialog(page, myUsername, username);
+          log(`${label} ✅ @${username} — unfollowed!`);
+        } catch (err) {
+          const msg = err.message;
+          if (msg.includes("not found in Followers") || msg.includes("already removed") || msg.includes("not following you")) {
+            log(`${label} ⏭ @${username} — ${msg}`);
+            skipped++;
+          } else {
+            log(`${label} ❌ @${username} — ${msg}`);
+            errors++;
+          }
+        }
+
+        // Close lingering dialogs
+        const hasDialog = await page.locator('div[role="dialog"]').isVisible().catch(() => false);
+        if (hasDialog) {
+          await page.keyboard.press("Escape");
+          await sleep(1000);
+          const stillOpen = await page.locator('div[role="dialog"]').isVisible().catch(() => false);
+          if (stillOpen) {
+            await page.keyboard.press("Escape");
+            await sleep(500);
+          }
+        }
+
+        i++;
+
+        // Show batch progress
+        const batchDone = b + 1;
+        const batchPct = Math.round((batchDone / batchSize) * 100);
+        log(`📊 Batch #${batchCount}: ${batchDone}/${batchSize} (${batchPct}%)`);
+
+        saveProgress({ completed: i, errors, skipped, batch: batchCount, mode: "batch" });
+      }
+
+      // ── Rest between batches ──
+      if (i < profiles.length) {
+        const restMins = BATCH_REST_MS / 60000;
+        const nextBatchSize = Math.min(
+          BATCH_MIN + Math.floor(Math.random() * (BATCH_MAX - BATCH_MIN + 1)),
+          profiles.length - i
+        );
+        const etaMs = BATCH_REST_MS + Math.ceil((profiles.length - i) / ((BATCH_MIN + BATCH_MAX) / 2)) * (BATCH_REST_MS + (BATCH_MAX * ACCOUNT_GAP_MS));
+        const eta = new Date(Date.now() + etaMs);
+        log(`😴 Batch #${batchCount} done! Resting ${restMins}min... Next: ~${nextBatchSize} accounts (ETA: ${eta.toLocaleTimeString()})`);
+        log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+        const chunk = 10000;
+        const chunks = Math.floor(BATCH_REST_MS / chunk);
+        for (let w = 0; w < chunks; w++) await sleep(chunk);
+        if (BATCH_REST_MS % chunk > 0) await sleep(BATCH_REST_MS % chunk);
       }
     }
+  } else {
+    // ── SPREAD MODE (original): even delays ──
+    for (let i = startIndex; i < profiles.length; i++) {
+      const p = profiles[i];
+      const username = p.username;
+      const label = `[${i + 1}/${profiles.length}]`;
 
-    // Close any lingering dialogs
-    const hasDialog = await page.locator('div[role="dialog"]').isVisible().catch(() => false);
-    if (hasDialog) {
-      await page.keyboard.press("Escape");
-      await sleep(1000);
-      const stillOpen = await page.locator('div[role="dialog"]').isVisible().catch(() => false);
-      if (stillOpen) {
+      // Update tab title
+      try { await page.evaluate((n, t) => { document.title = `Unfollow ${n}/${t}`; }, i + 1, profiles.length); } catch {}
+
+      // ── Delay (skip in test mode) ──
+      if (i > 0 && !isTest) {
+        const delay = baseWait + Math.floor(Math.random() * jitterRange);
+        const mins = Math.round(delay / 60000 * 10) / 10;
+        const eta = new Date(Date.now() + (profiles.length - i) * (baseWait + jitterRange / 2));
+        log(`${label} ⏳ ${mins}min (ETA: ${eta.toLocaleTimeString()})...`);
+        const chunk = 10000;
+        const chunks = Math.floor(delay / chunk);
+        for (let w = 0; w < chunks; w++) await sleep(chunk);
+        if (delay % chunk > 0) await sleep(delay % chunk);
+      }
+
+      // ── Unfollow ──
+      log(`${label} 🔍 @${username} — searching in Followers...`);
+
+      try {
+        await unfollowViaDialog(page, myUsername, username);
+        log(`${label} ✅ @${username} — unfollowed!`);
+      } catch (err) {
+        const msg = err.message;
+        if (msg.includes("not found in Followers") || msg.includes("already removed") || msg.includes("not following you")) {
+          log(`${label} ⏭ @${username} — ${msg}`);
+          skipped++;
+        } else {
+          log(`${label} ❌ @${username} — ${msg}`);
+          errors++;
+        }
+      }
+
+      // Close any lingering dialogs
+      const hasDialog = await page.locator('div[role="dialog"]').isVisible().catch(() => false);
+      if (hasDialog) {
         await page.keyboard.press("Escape");
-        await sleep(500);
+        await sleep(1000);
+        const stillOpen = await page.locator('div[role="dialog"]').isVisible().catch(() => false);
+        if (stillOpen) {
+          await page.keyboard.press("Escape");
+          await sleep(500);
+        }
       }
-    }
 
-    if (!isTest) saveProgress({ completed: i + 1, errors, skipped });
+      if (!isTest) saveProgress({ completed: i + 1, errors, skipped, mode: "spread" });
 
-    // In test mode, stop after 1
-    if (isTest) {
-      log(`🧪 Test complete! ✓`);
-      break;
+      // In test mode, stop after 1
+      if (isTest) {
+        log(`🧪 Test complete! ✓`);
+        break;
+      }
     }
   }
 

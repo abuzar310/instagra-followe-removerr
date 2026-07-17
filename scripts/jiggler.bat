@@ -1,0 +1,2 @@
+@echo off
+powershell -NoExit -Command "Add-Type -AssemblyName System.Windows.Forms; $p=[System.Windows.Forms.Cursor]::Position; [System.Windows.Forms.Cursor]::Position=New-Object System.Drawing.Point(($p.X+1),$p.Y); Write-Host 'Mouse jiggler running! Move your mouse to see it nudge.'; while(1){$p=[System.Windows.Forms.Cursor]::Position; [System.Windows.Forms.Cursor]::Position=New-Object System.Drawing.Point(($p.X+1),$p.Y); Write-Host ('Jiggled at '+ (Get-Date -Format HH:mm:ss)); Start-Sleep 30}"
