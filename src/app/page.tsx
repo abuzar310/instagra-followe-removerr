@@ -4,11 +4,23 @@ import { useData } from "@/hooks/useData";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { Upload, Users, AlertTriangle, CheckCircle, Activity, Database, LogIn } from "lucide-react";
+import { Upload, Users, AlertTriangle, CheckCircle, Activity, Database, LogIn, Download } from "lucide-react";
 import Link from "next/link";
 
+function downloadFile(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function DashboardPage() {
-  const { followers, batches, stats, loading, clearAll, refresh } = useData();
+  const { followers, batches, stats, loading, clearAll, refresh, backup } = useData();
 
   if (loading) {
     return (
@@ -59,6 +71,16 @@ export default function DashboardPage() {
               <Link href="/review" className="btn btn-primary text-sm">
                 Review Queue
               </Link>
+              <button
+                onClick={() => {
+                  const data = backup();
+                  downloadFile(JSON.stringify(data, null, 2), `ifr-backup-${new Date().toISOString().slice(0, 10)}.json`, "application/json");
+                }}
+                className="btn btn-ghost text-sm"
+                title="Download all data as JSON — survives server restarts"
+              >
+                <Download size={14} /> Backup
+              </button>
               <button onClick={clearAll} className="btn btn-ghost text-sm">
                 Clear Data
               </button>

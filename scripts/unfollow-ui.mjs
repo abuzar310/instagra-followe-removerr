@@ -285,12 +285,12 @@ async function main() {
   } else if (isBatch) {
     console.log("");
     console.log("╔══════════════════════════════════════════════╗");
-    console.log("║     🔥 BATCH MODE — Burst + Rest            ║");
+    console.log("║     🔥 BATCH MODE — 24hr Target             ║");
     console.log("╚══════════════════════════════════════════════╝");
     console.log("");
     console.log(`   🎯 ${profiles.length} accounts to unfollow`);
-    console.log(`   📦 Batch: 3-10 accounts (5s gap)`);
-    console.log(`   😴 Rest:  15 min between batches`);
+    console.log(`   📦 Bursts of 5-15 accounts (random)`);
+    console.log(`   😴 Rests adapt automatically to finish ~24h`);
     console.log("");
   } else {
     console.log("");
@@ -314,16 +314,7 @@ async function main() {
 
   if (!isTest) {
     if (isBatch) {
-      const BATCH_MIN = 3, BATCH_MAX = 10, BATCH_REST_MS = 900000;
-      const avgBatch = (BATCH_MIN + BATCH_MAX) / 2;
-      const batches = Math.ceil(profiles.length / avgBatch);
-      const workTime = profiles.length * 5000; // 5s per account
-      const restTime = Math.max(0, batches - 1) * BATCH_REST_MS;
-      const totalMs = workTime + restTime;
-      const totalHrs = Math.round(totalMs / 3600000 * 10) / 10;
-      console.log(`   ⏱ Estimated: ~${totalHrs} hours`);
-      console.log(`   📊 ~${batches} batches of ${BATCH_MIN}-${BATCH_MAX} accounts`);
-      console.log("");
+      // Dynamic pacing — estimates shown inline during execution
     } else {
       const CYCLE_HOURS = 36;
       const CYCLE_MS = CYCLE_HOURS * 60 * 60 * 1000;
@@ -389,38 +380,47 @@ async function main() {
 
   // ── Resume from progress (not in test mode) ──
   let startIndex = 0;
+  let savedProgress = null;
   if (!isTest) {
-    const saved = loadProgress();
-    if (saved && saved.completed > 0) {
-      console.log(`\n📋 Saved progress: ${saved.completed}/${profiles.length} done (${saved.errors} errors, ${saved.skipped} skipped)`);
+    savedProgress = loadProgress();
+    if (savedProgress && savedProgress.completed > 0) {
+      console.log(`\n📋 Saved progress: ${savedProgress.completed}/${profiles.length} done (${savedProgress.errors} errors, ${savedProgress.skipped} skipped)`);
       const ans = await ask("   Resume? (Y/n): ");
-      if (ans.toLowerCase() !== "n") startIndex = saved.completed;
+      if (ans.toLowerCase() !== "n") startIndex = savedProgress.completed;
     }
   }
 
-  // ── Batch settings ──
-  const BATCH_MIN = 3;
-  const BATCH_MAX = 10;
-  const BATCH_REST_MS = 15 * 60 * 1000; // 15 min
-  const ACCOUNT_GAP_MS = 5000; // 5s between accounts in a batch
-
   // ── Unfollow loop ──
-  let errors = 0;
-  let skipped = 0;
-  let batchCount = 0;
+  let errors = savedProgress?.errors || 0;
+  let skipped = savedProgress?.skipped || 0;
+  let batchCount = savedProgress?.batch || 0;
 
   if (isBatch) {
-    // ── BATCH MODE: burst + rest ──
+    // ── SMART BATCH MODE: random bursts, dynamic pacing, finishes ~24h ──
+    const MAX_HOURS = 24;
+    const ACCOUNT_GAP_MS = 5000 + Math.floor(Math.random() * 3000); // 5-8s
+    const startTime = Date.now();
+    const deadline = startTime + (MAX_HOURS * 60 * 60 * 1000);
+    let cumulativeWorkMs = 0;
+    let cumulativeRestMs = 0;
+
+    console.log(`   🎯 Target: finish in ~${MAX_HOURS}h (by ${new Date(deadline).toLocaleString()})`);
+    console.log(`   🎲 Random bursts (5-15 accs), random rests, adaptive pacing`);
+    console.log("");
+
     let i = startIndex;
     while (i < profiles.length) {
       batchCount++;
       const remaining = profiles.length - i;
+
+      // Random burst size
+      const burstMin = 5, burstMax = 15;
       const batchSize = Math.min(
-        BATCH_MIN + Math.floor(Math.random() * (BATCH_MAX - BATCH_MIN + 1)),
+        burstMin + Math.floor(Math.random() * (burstMax - burstMin + 1)),
         remaining
       );
 
-      log(`📦 BATCH #${batchCount} — ${batchSize} accounts (${remaining - batchSize} remaining after)`);
+      log(`📦 BATCH #${batchCount} — ${batchSize} accounts (${remaining - batchSize} left after)`);
 
       for (let b = 0; b < batchSize; b++) {
         const p = profiles[i];
@@ -430,12 +430,13 @@ async function main() {
         // Update tab title
         try { await page.evaluate((n, t) => { document.title = `Unfollow ${n}/${t}`; }, i + 1, profiles.length); } catch {}
 
-        // Gap between accounts in batch (5s)
+        // Gap between accounts in batch
         if (b > 0) {
-          const chunk = 1000;
-          const chunks = Math.floor(ACCOUNT_GAP_MS / chunk);
-          for (let w = 0; w < chunks; w++) await sleep(chunk);
+          const gap = ACCOUNT_GAP_MS + Math.floor(Math.random() * 5000); // 5-13s
+          await sleep(gap);
         }
+
+        const accountStart = Date.now();
 
         // Unfollow
         log(`${label} 🔍 @${username} — searching in Followers...`);
@@ -466,6 +467,8 @@ async function main() {
           }
         }
 
+        const accountTime = Date.now() - accountStart;
+        cumulativeWorkMs += accountTime;
         i++;
 
         // Show batch progress
@@ -476,22 +479,48 @@ async function main() {
         saveProgress({ completed: i, errors, skipped, batch: batchCount, mode: "batch" });
       }
 
-      // ── Rest between batches ──
+      // ── Dynamic rest between batches ──
       if (i < profiles.length) {
-        const restMins = BATCH_REST_MS / 60000;
-        const nextBatchSize = Math.min(
-          BATCH_MIN + Math.floor(Math.random() * (BATCH_MAX - BATCH_MIN + 1)),
-          profiles.length - i
-        );
-        const etaMs = BATCH_REST_MS + Math.ceil((profiles.length - i) / ((BATCH_MIN + BATCH_MAX) / 2)) * (BATCH_REST_MS + (BATCH_MAX * ACCOUNT_GAP_MS));
-        const eta = new Date(Date.now() + etaMs);
-        log(`😴 Batch #${batchCount} done! Resting ${restMins}min... Next: ~${nextBatchSize} accounts (ETA: ${eta.toLocaleTimeString()})`);
-        log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        const elapsed = Date.now() - startTime;
+        const remaining = profiles.length - i;
+        const timeLeft = deadline - Date.now();
 
-        const chunk = 10000;
-        const chunks = Math.floor(BATCH_REST_MS / chunk);
-        for (let w = 0; w < chunks; w++) await sleep(chunk);
-        if (BATCH_REST_MS % chunk > 0) await sleep(BATCH_REST_MS % chunk);
+        // Avg time per account so far
+        const avgWorkPerAccount = cumulativeWorkMs / Math.max(1, i - startIndex);
+        // Estimated work time remaining
+        const estimatedWorkMs = remaining * avgWorkPerAccount;
+        // Time left for rests
+        const restBudget = Math.max(0, timeLeft - estimatedWorkMs);
+
+        if (restBudget > 0) {
+          // How many more rest periods? Rough estimate: ~(remaining / avgBatch) rests
+          const avgBatchSize = (burstMin + burstMax) / 2;
+          const estimatedRests = Math.ceil(remaining / avgBatchSize);
+          const avgRestMs = restBudget / Math.max(1, estimatedRests);
+
+          // Random rest between 60% and 140% of the calculated average
+          let restMs = Math.floor(avgRestMs * (0.6 + Math.random() * 0.8));
+          // Clamp to sensible range: min 3 min, max 40 min
+          restMs = Math.max(180000, Math.min(restMs, 2400000));
+
+          const restMins = Math.round(restMs / 60000 * 10) / 10;
+          cumulativeRestMs += restMs;
+
+          // ETA
+          const eta = new Date(Date.now() + estimatedWorkMs + restBudget);
+          log(`😴 Resting ${restMins}min... Next batch ~${Math.min(burstMax, remaining - Math.min(burstMax, remaining)) + burstMin} accounts (ETA: ${eta.toLocaleTimeString()})`);
+          log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+          // Sleep in 10s chunks so we can see progress
+          const chunk = 10000;
+          const chunks = Math.floor(restMs / chunk);
+          for (let w = 0; w < chunks; w++) await sleep(chunk);
+          if (restMs % chunk > 0) await sleep(restMs % chunk);
+        } else {
+          // Running behind — short cooldown only
+          log(`⏱ Pacing — short 2min cooldown...`);
+          await sleep(120000);
+        }
       }
     }
   } else {

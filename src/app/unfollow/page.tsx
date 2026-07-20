@@ -26,90 +26,173 @@ export default function UnfollowPage() {
   const errorCount = queue.filter(e => e.status === "error").length
 
   const [copied, setCopied] = useState(false)
-  const [showScript, setShowScript] = useState(false)
 
   // Generate a ready-to-paste DevTools console script
   const generateConsoleScript = () => {
     const entries = toRemoveProfiles.map(p => ({ username: p.username }))
     const entriesJson = JSON.stringify(entries)
-    return `// Instagram Unfollower — paste this entire thing in the Console tab on instagram.com
+    return `// 🔥 Instagram Unfollower — Smart Batch Mode (targets ~24h)
+// Paste this in Instagram's Console tab (F12) while logged in
 
 const ENTRIES = ${entriesJson};
 
 (async function() {
   const TOTAL = ENTRIES.length;
-  const CYCLE_HOURS = 36;
-  const AVG_MS = (CYCLE_HOURS * 60 * 60 * 1000) / TOTAL;
-  const baseWait = Math.max(60000, AVG_MS * 0.8);
-  const jitter = Math.max(20000, AVG_MS * 0.4);
-  let done = 0, errors = 0;
-
-  console.log("🚀 Unfollowing " + TOTAL + " accounts over ~" + CYCLE_HOURS + " hours");
+  const MAX_HOURS = 24;
+  const DEADLINE = Date.now() + MAX_HOURS * 3600000;
+  const START_TIME = Date.now();
+  console.log("");
+  console.log("🔥 Instagram Unfollower — Smart Batch Mode");
+  console.log("🎯 " + TOTAL + " accounts to unfollow, targeting ~" + MAX_HOURS + " hours");
+  console.log("⏰ Deadline: " + new Date(DEADLINE).toLocaleString());
   console.log("");
 
-  for (let i = 0; i < TOTAL; i++) {
-    const e = ENTRIES[i];
-    document.title = "Unfollow " + (i + 1) + "/" + TOTAL + " — Instagram";
+  // Resume from saved progress
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem("ifr_unfollow_progress") || "null"); } catch {}
+  let startIndex = saved ? (saved.lastIndex + 1) : 0;
+  let done = saved?.done || 0;
+  let errors = saved?.errors || 0;
+  let batchCount = saved?.batch || 0;
+  let cumulativeWorkMs = 0;
 
-    if (i > 0) {
-      const delay = baseWait + Math.random() * jitter;
-      const eta = new Date(Date.now() + (TOTAL - i) * (baseWait + jitter / 2));
-      console.log("[" + (i + 1) + "/" + TOTAL + "] ⏳ " + Math.round(delay / 60000 * 10) / 10 + "min (ETA: " + eta.toLocaleTimeString() + ")");
-      await new Promise(r => setTimeout(r, delay));
+  if (saved) {
+    console.log("📋 Resuming from " + (saved.lastIndex + 1) + "/" + TOTAL + " (" + done + " done, " + errors + " errors)");
+    console.log("");
+  }
+
+  for (let i = startIndex; i < TOTAL; i++) {
+    const username = ENTRIES[i].username;
+
+    // Start a new batch every so often
+    const batchStart = (i - startIndex) % (5 + Math.floor(Math.random() * 11)) === 0; // 5-15 per batch
+    if (batchStart && i > startIndex) {
+      batchCount++;
+      const elapsed = Date.now() - START_TIME;
+      const remaining = TOTAL - i;
+      const timeLeft = DEADLINE - Date.now();
+      const avgWorkPerAccount = cumulativeWorkMs / Math.max(1, i - startIndex);
+      const estimatedWorkMs = remaining * avgWorkPerAccount;
+      const restBudget = Math.max(0, timeLeft - estimatedWorkMs);
+      const estimatedRests = Math.max(1, Math.ceil(remaining / 10));
+
+      let restMs;
+      if (restBudget > 0) {
+        restMs = restBudget / estimatedRests;
+        restMs = Math.max(180000, Math.min(restMs, 2400000)); // 3-40 min
+      } else {
+        restMs = 120000; // running behind, 2 min
+      }
+
+      const restMinutes = Math.round(restMs / 60000 * 10) / 10;
+      const eta = new Date(Date.now() + estimatedWorkMs + Math.max(0, restBudget));
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("😴 Batch #" + batchCount + " done — Resting " + restMinutes + "min (ETA: " + eta.toLocaleTimeString() + ")");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+      // Sleep with ETA ticker
+      const sleepStart = Date.now();
+      while (Date.now() - sleepStart < restMs) {
+        const left = Math.round((restMs - (Date.now() - sleepStart)) / 1000);
+        const mins = Math.floor(left / 60);
+        const secs = left % 60;
+        document.title = "😴 Rest " + mins + "m " + secs + "s — " + (TOTAL - i) + " left";
+        await new Promise(r => setTimeout(r, 5000));
+      }
+      document.title = "Unfollow — Batch #" + (batchCount + 1);
     }
 
-    // Look up user ID via Instagram's web API (works while logged in)
+    // Small random gap between accounts (5-13s)
+    if (i > startIndex) {
+      const gap = 5000 + Math.random() * 8000;
+      await new Promise(r => setTimeout(r, gap));
+    }
+
+    const accountStart = Date.now();
+    document.title = "🔍 @" + username + " (" + (i + 1) + "/" + TOTAL + ")";
+
+    // Get CSRF token
     const csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "";
+
+    // Look up user ID
     let userId;
     try {
-      const r = await fetch("https://www.instagram.com/api/v1/users/web_profile_info/?username=" + e.username, {
+      const r = await fetch("https://www.instagram.com/api/v1/users/web_profile_info/?username=" + username, {
+        credentials: "include",
         headers: { "x-ig-app-id": "936619743392459", "x-csrftoken": csrf }
       });
       const d = await r.json();
       userId = d.data?.user?.id;
-    } catch(_) {}
+    } catch {}
 
     if (!userId) {
-      console.log("[" + (i + 1) + "/" + TOTAL + "] ❌ @" + e.username + " — not found (deleted?)");
+      console.log("[" + (i + 1) + "/" + TOTAL + "] ❌ @" + username + " — not found");
       errors++;
+      localStorage.setItem("ifr_unfollow_progress", JSON.stringify({ done, errors, lastIndex: i, batch: batchCount }));
       continue;
     }
 
-    // Unfollow
-    const res = await fetch("https://i.instagram.com/api/v1/friendships/destroy/" + userId + "/", {
-      method: "POST",
-      headers: { "x-ig-app-id": "936619743392459", "x-csrftoken": csrf, "content-type": "application/x-www-form-urlencoded" },
-      body: ""
-    });
-    const d = await res.json();
-
-    if (d.status === "ok") {
-      console.log("[" + (i + 1) + "/" + TOTAL + "] ✅ @" + e.username + " — unfollowed");
-      done++;
-    } else {
-      if (res.status === 429 || (d.message || "").includes("rate") || (d.message || "").includes("spam")) {
-        console.log("[" + (i + 1) + "/" + TOTAL + "] ⏸ Rate limited — 3min pause...");
-        await new Promise(r => setTimeout(r, 180000 + Math.random() * 60000));
-        const r2 = await fetch("https://i.instagram.com/api/v1/friendships/destroy/" + userId + "/", {
+    // Unfollow via API
+    let success = false;
+    for (let attempt = 0; attempt < 2 && !success; attempt++) {
+      try {
+        const res = await fetch("https://i.instagram.com/api/v1/friendships/destroy/" + userId + "/", {
           method: "POST",
-          headers: { "x-ig-app-id": "936619743392459", "x-csrftoken": csrf, "content-type": "application/x-www-form-urlencoded" },
+          credentials: "include",
+          headers: {
+            "x-ig-app-id": "936619743392459",
+            "x-csrftoken": csrf,
+            "content-type": "application/x-www-form-urlencoded"
+          },
           body: ""
         });
-        const d2 = await r2.json();
-        if (d2.status === "ok") { console.log("[" + (i + 1) + "/" + TOTAL + "] ✅ @" + e.username + " — retry success"); done++; }
-        else { console.log("[" + (i + 1) + "/" + TOTAL + "] ❌ @" + e.username + " — " + (d2.message || "failed")); errors++; }
-      } else {
-        console.log("[" + (i + 1) + "/" + TOTAL + "] ❌ @" + e.username + " — " + (d.message || "failed"));
-        errors++;
+        const d = await res.json();
+
+        if (d.status === "ok") {
+          console.log("[" + (i + 1) + "/" + TOTAL + "] ✅ @" + username + " — unfollowed");
+          done++;
+          success = true;
+        } else if (res.status === 429 || (d.message || "").includes("rate") || (d.message || "").includes("spam")) {
+          console.log("[" + (i + 1) + "/" + TOTAL + "] ⏸ Rate limited — 3min pause...");
+          await new Promise(r => setTimeout(r, 180000 + Math.random() * 60000));
+        } else if (d.spam) {
+          console.log("[" + (i + 1) + "/" + TOTAL + "] ⏸ Spam check — 5min pause...");
+          await new Promise(r => setTimeout(r, 300000 + Math.random() * 120000));
+        } else {
+          console.log("[" + (i + 1) + "/" + TOTAL + "] ❌ @" + username + " — " + (d.message || "failed"));
+          errors++;
+          success = true; // counted
+        }
+      } catch (e) {
+        console.log("[" + (i + 1) + "/" + TOTAL + "] ❌ @" + username + " — network error: " + e.message);
+        if (attempt === 0) {
+          console.log("   Retrying in 30s...");
+          await new Promise(r => setTimeout(r, 30000));
+        } else {
+          errors++;
+          success = true;
+        }
       }
     }
 
-    // Save progress to localStorage to resume if tab closes
-    localStorage.setItem("ifr_unfollow_progress", JSON.stringify({ done, errors, lastIndex: i }));
+    cumulativeWorkMs += Date.now() - accountStart;
+
+    // Save progress every account
+    localStorage.setItem("ifr_unfollow_progress", JSON.stringify({ done, errors, lastIndex: i, batch: batchCount }));
+
+    // Show pace every 10 accounts
+    if ((i + 1) % 10 === 0) {
+      const elapsedHrs = (Date.now() - START_TIME) / 3600000;
+      const rate = (i - startIndex + 1) / elapsedHrs;
+      const remaining = TOTAL - (i + 1);
+      const estHrs = (remaining / rate) || 0;
+      console.log("📊 " + (i + 1) + "/" + TOTAL + " — " + Math.round(rate) + "/hr — est " + Math.round(estHrs * 10) / 10 + "h remaining");
+    }
   }
 
   console.log("");
   console.log("🎉 Done! " + done + " unfollowed, " + errors + " failed");
+  console.log("⏱ Took " + Math.round((Date.now() - START_TIME) / 3600000 * 10) / 10 + " hours");
   localStorage.removeItem("ifr_unfollow_progress");
 })();`
   }
@@ -252,10 +335,14 @@ const ENTRIES = ${entriesJson};
                 : "Download the list of rejected accounts and run the unfollow script on your computer. It'll open Brave and remove them slowly (like a human)."}
             </p>
 
-            {!hasNoneToRemove && (
+            {!hasNoneToRemove ? (
               <div className="flex gap-2 flex-wrap">
                 <button className="btn btn-danger" onClick={exportRejected}>
                   <Download size={14} /> Download List to Unfollow
+                </button>
+                <button className="btn btn-primary" onClick={copyConsoleScript}>
+                  {copied ? <Check size={14} /> : <Terminal size={14} />}
+                  {copied ? "Copied!" : "Copy Console Script"}
                 </button>
                 <button className="btn btn-ghost" onClick={addToQueue}>
                   Add to Queue
@@ -266,12 +353,16 @@ const ENTRIES = ${entriesJson};
                   </button>
                 )}
               </div>
-            )}
-
-            {hasNoneToRemove && (
+            ) : (
               <a href="/review" className="btn btn-primary">
                 <ArrowRight size={14} /> Review Accounts Now
               </a>
+            )}
+
+            {!hasNoneToRemove && (
+              <div className="flex items-center gap-2 pt-2 border-t border-[#27272a]/50 text-xs text-[#52525b]">
+                <span>🎯 Targets ~24h — random bursts of 5-15 accounts with adaptive rests</span>
+              </div>
             )}
           </div>
         </div>
@@ -279,28 +370,65 @@ const ENTRIES = ${entriesJson};
 
       {/* How to unfollow instructions */}
       {!hasNoneToRemove && (
-        <div className="card p-5 space-y-3 border border-[#ef4444]/20">
+        <div className="card p-5 space-y-4 border border-[#ef4444]/20">
           <div className="flex items-center gap-2">
             <AlertCircle size={16} className="text-[#ef4444]" />
             <h3 className="text-sm font-semibold text-white">How to remove these accounts</h3>
           </div>
-          <ol className="text-sm text-[#a1a1aa] space-y-2 ml-5 list-decimal">
-            <li>
-              Click <strong className="text-white">"Download List to Unfollow"</strong> above — it saves a file called <code className="text-xs bg-[#1f1f23] px-1.5 py-0.5 rounded text-white/60">to-unfollow.json</code>
-            </li>
-            <li>
-              Open a terminal and run:
-              <pre className="bg-[#0a0a0b] border border-[#27272a] rounded-lg p-3 text-xs font-mono text-[#a1a1aa] mt-1 overflow-x-auto">
+
+          {/* Method A: DevTools Console Script */}
+          <div className="bg-[#121214] rounded-xl p-4 border border-[#27272a]">
+            <div className="flex items-center gap-2 mb-2">
+              <Terminal size={14} className="text-[#818cf8]" />
+              <span className="text-sm font-medium text-white">Method A: Run in your browser (recommended)</span>
+            </div>
+            <ol className="text-sm text-[#a1a1aa] space-y-2 ml-5 list-decimal">
+              <li>
+                Click <strong className="text-white">"Copy Console Script"</strong> above
+              </li>
+              <li>
+                Go to <strong className="text-white">instagram.com</strong> in your browser (make sure you're logged in)
+              </li>
+              <li>
+                Open DevTools (<strong className="text-white">F12</strong>) → <strong className="text-white">Console</strong> tab
+              </li>
+              <li>
+                Paste the script into the console and press <strong className="text-white">Enter</strong>
+              </li>
+              <li>
+                Wait — it unfollows in random bursts of 5-15 accounts, 5-13s apart, with short rests in between. <span className="text-[#eab308]">Keep the tab open</span>
+              </li>
+            </ol>
+            <div className="mt-2 text-xs text-[#52525b]">
+              💡 Script saves progress to localStorage — safe to close and resume later
+            </div>
+          </div>
+
+          {/* Method B: Playwright script (old) */}
+          <div className="bg-[#121214] rounded-xl p-4 border border-[#27272a]">
+            <div className="flex items-center gap-2 mb-2">
+              <Terminal size={14} className="text-[#22c55e]" />
+              <span className="text-sm font-medium text-white">Method B: Playwright automation (advanced)</span>
+            </div>
+            <ol className="text-sm text-[#a1a1aa] space-y-2 ml-5 list-decimal">
+              <li>
+                Click <strong className="text-white">"Download List to Unfollow"</strong> above — saves <code className="text-xs bg-[#1f1f23] px-1.5 py-0.5 rounded text-white/60">to-unfollow.json</code>
+              </li>
+              <li>
+                Open a terminal and run:
+                <pre className="bg-[#0a0a0b] border border-[#27272a] rounded-lg p-3 text-xs font-mono text-[#a1a1aa] mt-1 overflow-x-auto">
 node scripts/unfollow-instagram.mjs to-unfollow.json
-              </pre>
-            </li>
-            <li>
-              Your Brave browser will open and unfollow all the bots — it takes 5-10 seconds per account so Instagram doesn't block you
-            </li>
-            <li>
-              After it finishes, <strong className="text-white">come back here</strong> and check them off
-            </li>
-          </ol>
+                </pre>
+              </li>
+              <li>
+                Your Brave browser will open and unfollow bots slowly
+              </li>
+            </ol>
+          </div>
+
+          <div className="text-xs text-[#52525b]">
+            After either method finishes, <strong className="text-white">come back here</strong> and check them off below
+          </div>
         </div>
       )}
 

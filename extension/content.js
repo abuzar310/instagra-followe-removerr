@@ -197,6 +197,9 @@ async function handleUnfollow(msg, sendResponse) {
   const baseWait = Math.max(5000, Math.floor(avgInterval * 0.7));
   const jitterRange = Math.max(1000, Math.floor(avgInterval * 0.6));
 
+  // Capture the viewer's own user ID from the ds_user_id cookie once
+  const viewerId = (document.cookie.match(/ds_user_id=(\d+)/) || [])[1] || "";
+
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
     const delay = baseWait + Math.floor(Math.random() * jitterRange);
@@ -204,15 +207,25 @@ async function handleUnfollow(msg, sendResponse) {
       await new Promise(r => setTimeout(r, delay));
     }
     try {
+      const token = csrf();
       const url = `https://i.instagram.com/api/v1/friendships/destroy/${entry.profileId}/`;
+      // Instagram requires the target user_id, csrf token, and viewer uid in the body
+      const body = new URLSearchParams({
+        user_id: String(entry.profileId),
+        _csrftoken: token,
+        _uid: viewerId,
+      }).toString();
       const res = await fetch(url, {
         method: "POST",
         headers: {
           "x-ig-app-id": APP_ID,
-          "x-csrftoken": csrf(),
+          "x-csrftoken": token,
           "content-type": "application/x-www-form-urlencoded",
+          "x-requested-with": "XMLHttpRequest",
+          "referer": "https://www.instagram.com/",
+          "origin": "https://www.instagram.com",
         },
-        body: "",
+        body,
       });
       const data = await res.json();
       if (res.ok && data.status === "ok") {

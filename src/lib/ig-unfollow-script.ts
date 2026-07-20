@@ -59,6 +59,9 @@ export function generateUnfollowScript(
     return;
   }
 
+  // Grab viewer ID from the ds_user_id cookie once
+  const VIEWER_ID = (document.cookie.match(/ds_user_id=(\\d+)/) || [])[1] || "";
+
   for (let i = 0; i < ENTRIES.length; i++) {
     const entry = ENTRIES[i];
     const progress = "[" + (i + 1) + "/" + ENTRIES.length + "]";
@@ -75,28 +78,38 @@ export function generateUnfollowScript(
       await new Promise(r => setTimeout(r, delay));
     }
 
-    // Unfollow
+    // Unfollow — Instagram's API requires user_id, _csrftoken, and _uid in the body
     try {
+      const token = csrf();
       const url = "https://i.instagram.com/api/v1/friendships/destroy/" + entry.profileId + "/";
+      const body = new URLSearchParams({
+        user_id: String(entry.profileId),
+        _csrftoken: token,
+        _uid: VIEWER_ID,
+      }).toString();
       const res = await fetch(url, {
         method: "POST",
+        credentials: "include",
         headers: {
           "x-ig-app-id": APP_ID,
-          "x-csrftoken": csrf(),
-          "content-type": "application/x-www-form-urlencoded"
+          "x-csrftoken": token,
+          "content-type": "application/x-www-form-urlencoded",
+          "x-requested-with": "XMLHttpRequest",
+          "referer": "https://www.instagram.com/",
+          "origin": "https://www.instagram.com"
         },
-        body: ""
+        body: body
       });
       const data = await res.json();
 
       if (res.ok && data.status === "ok") {
         RESULTS.push({ userId: entry.profileId, username: entry.username, success: true });
-        console.log(progress + " ✅ @@" + entry.username + " — unfollowed");
+        console.log(progress + " ✅ @" + entry.username + " — unfollowed");
       } else {
         // Check for rate limiting
         const errMsg = data.message || data.error_type || "HTTP " + res.status;
         RESULTS.push({ userId: entry.profileId, username: entry.username, success: false, error: errMsg });
-        console.warn(progress + " ❌ @@" + entry.username + " — " + errMsg);
+        console.warn(progress + " ❌ @" + entry.username + " — " + errMsg);
 
         // If rate limited, wait longer
         if (res.status === 429 || res.status === 400 || errMsg.includes("rate") || errMsg.includes("spam")) {
@@ -107,7 +120,7 @@ export function generateUnfollowScript(
       }
     } catch (e) {
       RESULTS.push({ userId: entry.profileId, username: entry.username, success: false, error: String(e) });
-      console.error(progress + " ❌ @@" + entry.username + " — " + String(e));
+      console.error(progress + " ❌ @" + entry.username + " — " + String(e));
     }
   }
 

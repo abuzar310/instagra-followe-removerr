@@ -3,11 +3,12 @@
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useData } from "@/hooks/useData";
-import { Upload, FileText, X, AlertCircle, Database } from "lucide-react";
+import type { AppBackup } from "@/lib/store";
+import { Upload, FileText, X, AlertCircle, Database, Download, Upload as UploadIcon } from "lucide-react";
 
 export default function ImportPage() {
   const router = useRouter();
-  const { importFollowers } = useData();
+  const { importFollowers, restore } = useData();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [dragOver, setDragOver] = useState(false);
@@ -183,6 +184,15 @@ export default function ImportPage() {
               Missing fields are treated as zeros or false — you can adjust suspicion rules afterwards.
             </p>
           </div>
+
+          {/* Restore Backup */}
+          <div className="border-t border-[#27272a] pt-6 mt-6">
+            <h3 className="text-sm font-semibold text-white/80 mb-2">Restore Backup</h3>
+            <p className="text-sm text-[#a1a1aa] mb-4">
+              Lost your data after closing the app? Upload a backup file you downloaded earlier to restore everything.
+            </p>
+            <RestoreSection onRestore={restore} />
+          </div>
         </>
       ) : (
         /* Preview */
@@ -236,6 +246,82 @@ export default function ImportPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Restore Backup Section ── */
+function RestoreSection({ onRestore }: { onRestore: (backup: AppBackup) => { followers: number; rules: number; batches: number; whitelist: number } }) {
+  const [status, setStatus] = useState<{ type: "ok" | "err" | "info"; msg: string } | null>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  const handleRestore = (file: File) => {
+    setStatus(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      try {
+        const data = JSON.parse(text);
+
+        // Validate it's a proper backup
+        if (!data.version || !data.followers) {
+          setStatus({ type: "err", msg: "This doesn't look like a valid backup file. Make sure you're using a file exported from the Backup button." });
+          return;
+        }
+
+        setRestoring(true);
+        const result = onRestore(data);
+        setStatus({
+          type: "ok",
+          msg: `Restored successfully! ${result.followers} profiles, ${result.rules} rules, ${result.batches} imports, ${result.whitelist} whitelisted accounts.`,
+        });
+        setRestoring(false);
+      } catch {
+        setStatus({ type: "err", msg: "Invalid JSON file. Please select a valid backup file." });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="card p-5 border border-dashed border-[#27272a]">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <div className="flex-1">
+          <p className="text-sm text-[#a1a1aa]">
+            Choose a <code className="text-xs bg-[#1f1f23] px-1.5 py-0.5 rounded text-white/60">ifr-backup-*.json</code> file to restore.
+          </p>
+          <p className="text-xs text-[#52525b] mt-1">
+            ⚠️ This will overwrite ALL current data.
+          </p>
+        </div>
+        <label className="btn btn-ghost text-sm cursor-pointer">
+          <UploadIcon size={14} />
+          {restoring ? "Restoring..." : "Restore Backup"}
+          <input
+            type="file"
+            accept=".json"
+            className="hidden"
+            disabled={restoring}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleRestore(f);
+            }}
+          />
+        </label>
+      </div>
+      {status && (
+        <div
+          className={`mt-3 px-4 py-2.5 rounded-lg text-sm ${
+            status.type === "ok"
+              ? "bg-[rgba(34,197,94,0.1)] border border-[rgba(34,197,94,0.2)] text-[#22c55e]"
+              : status.type === "err"
+              ? "bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] text-[#ef4444]"
+              : "bg-[rgba(59,130,246,0.1)] border border-[rgba(59,130,246,0.2)] text-[#3b82f6]"
+          }`}
+        >
+          {status.msg}
         </div>
       )}
     </div>

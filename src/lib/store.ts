@@ -333,6 +333,53 @@ export function isWhitelisted(id: string): boolean {
   return getWhitelist().some((w) => w.id === id);
 }
 
+/* ── Backup & Restore ──
+ * Export all app data to a single JSON file for safe keeping.
+ * Import it back to restore after clearing browser data or switching devices.
+ */
+
+export interface AppBackup {
+  version: 1;
+  exportedAt: string;
+  followers: Follower[];
+  rules: Rule[];
+  batches: ImportBatch[];
+  whitelist: WhitelistEntry[];
+}
+
+export function exportBackup(): AppBackup {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    followers: getFollowers(),
+    rules: getRules(),
+    batches: getBatches(),
+    whitelist: getWhitelist(),
+  };
+}
+
+/**
+ * Restore all data from a backup. Returns a count of restored items.
+ * WARNING: This overwrites ALL current data (followers, rules, batches, whitelist).
+ */
+export function importBackup(backup: AppBackup): {
+  followers: number;
+  rules: number;
+  batches: number;
+  whitelist: number;
+} {
+  write(STORAGE_KEY, backup.followers || []);
+  write(RULES_KEY, backup.rules || []);
+  write(BATCHES_KEY, backup.batches || []);
+  write(WHITELIST_KEY, backup.whitelist || []);
+  return {
+    followers: (backup.followers || []).length,
+    rules: (backup.rules || []).length,
+    batches: (backup.batches || []).length,
+    whitelist: (backup.whitelist || []).length,
+  };
+}
+
 /* ── Instagram Cookies ── */
 
 export function getInstagramCookies(): InstagramCookies | null {

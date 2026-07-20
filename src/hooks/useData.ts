@@ -6,7 +6,9 @@ import {
   getFollowers, updateFollower, deleteFollowers,
   getRules, saveRules, resetRules,
   getBatches, importFollowers, clearAll, scoreAll, getDashboardStats, applyFilters, getDefaultFilters,
+  exportBackup, importBackup,
 } from "@/lib/store";
+import type { AppBackup } from "@/lib/store";
 
 export function useData() {
   const [followers, setFollowers] = useState<Follower[]>([]);
@@ -63,6 +65,16 @@ export function useData() {
     refresh();
   }, [refresh]);
 
+  const doBackup = useCallback((): AppBackup => {
+    return exportBackup();
+  }, []);
+
+  const doRestore = useCallback((backup: AppBackup) => {
+    const result = importBackup(backup);
+    refresh();
+    return result;
+  }, [refresh]);
+
   const stats: DashboardStats = getDashboardStats(followers);
 
   return {
@@ -74,6 +86,8 @@ export function useData() {
     saveRules: doSaveRules,
     resetRules: doResetRules,
     clearAll: doClearAll,
+    backup: doBackup,
+    restore: doRestore,
     refresh,
   };
 }
