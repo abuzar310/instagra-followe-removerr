@@ -295,9 +295,9 @@ async function removeFollower(page, myUsername, username) {
   // Always verify the username is showing in the dialog before clicking Remove.
 
   // First, check if the username actually appears in the filtered results
-  const usernameVisible = await dialog.evaluate((user) => {
-    const candidates = document.querySelectorAll(
-      'div[role="dialog"] span, div[role="dialog"] a, div[role="dialog"] div, div[role="dialog"] li'
+  const usernameVisible = await dialog.evaluate((dialogEl, user) => {
+    const candidates = dialogEl.querySelectorAll(
+      'span, a, div, li'
     );
     for (const el of candidates) {
       const text = el.textContent?.toLowerCase().trim() || '';
@@ -315,9 +315,9 @@ async function removeFollower(page, myUsername, username) {
   }
 
   // Now safely find the Remove button associated with THIS username
-  const clicked = await dialog.evaluate((user) => {
-    const candidates = document.querySelectorAll(
-      'div[role="dialog"] span, div[role="dialog"] a, div[role="dialog"] div, div[role="dialog"] li'
+  const clicked = await dialog.evaluate((dialogEl, user) => {
+    const candidates = dialogEl.querySelectorAll(
+      'span, a, div, li'
     );
     for (const el of candidates) {
       const elText = el.textContent?.toLowerCase().trim() || '';
