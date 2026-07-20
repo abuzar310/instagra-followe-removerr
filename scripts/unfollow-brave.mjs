@@ -707,19 +707,12 @@ Pacing:
     }
 
     console.log("");
-    console.log(`⏸  ${profiles.length - i} accounts remaining.`);
-    console.log(`   Take a break — come back and run:`);
-    console.log(`   node scripts/unfollow-brave.mjs ${fileArg} --resume`);
+    console.log(`⏩ Auto-continuing to Session #${session + 1}...`);
+    console.log(`   (${profiles.length - i} accounts remaining)`);
+    console.log(`   💡 Press Ctrl+C anytime to stop — progress is saved!`);
     console.log("");
 
     session++;
-
-    // User decides when to continue
-    const cont = await ask("   Press Enter to start next session, or type 'quit' to stop: ");
-    if (cont.toLowerCase().startsWith("q")) {
-      console.log("   👋 Exiting. Resume later with --resume");
-      break;
-    }
 
     // Refresh before next session
     log("🌐 Refreshing Instagram for next session...");
