@@ -11,14 +11,15 @@
  *   2. Goes to your profile → clicks "Followers"
  *   3. For each account: types the username in the search box, clicks "Remove",
  *      then clicks "Remove" again in the confirmation popup
- *   4. Paced at ~70-80 removals per hour to avoid suspicion
- *   5. Runs in 1-hour sessions (~70-75 removals), then saves progress and exits
+ *   4. Paced at ~390 removals per hour (~5-8 per minute)
+ *   5. Runs in 1-hour sessions (~357 removals), then saves progress and exits
  *   6. Resume later with --resume
  *
  * USAGE:
  *   node scripts/unfollow-brave.mjs <approved-accounts.json>
  *   node scripts/unfollow-brave.mjs <approved-accounts.json> --resume
  *   node scripts/unfollow-brave.mjs <approved-accounts.json> --from-username <username>
+ *   node scripts/unfollow-brave.mjs <approved-accounts.json> -n 172
  *
  * INPUT FORMAT (exported from the app's Review page → Export → JSON — Approved only):
  *   [
@@ -69,11 +70,11 @@ function ask(query) {
 
 // ── Configuration ──
 
-const TARGET_PER_HOUR = 75;         // ~75 removals per hour
+const TARGET_PER_HOUR = 390;         // ~390 removals per hour (~6.5/min)
 const SESSION_MINUTES = 55;          // Run for ~55 min, then rest
-const BETWEEN_ACCOUNT_MS = Math.floor(3600000 / TARGET_PER_HOUR);  // ~48 sec base
-const JITTER_MS = 15000;             // ±15 sec random jitter
-const SESSION_ACCOUNTS = Math.floor(TARGET_PER_HOUR * (SESSION_MINUTES / 60)); // ~69 per session
+const BETWEEN_ACCOUNT_MS = Math.floor(3600000 / TARGET_PER_HOUR);  // ~9.2s base
+const JITTER_MS = 2250;              // ±2.25s jitter → range: ~7s-11.5s (5-8 per minute)
+const SESSION_ACCOUNTS = Math.floor(TARGET_PER_HOUR * (SESSION_MINUTES / 60)); // ~357 per session
 
 // ── Browser detection ──
 
@@ -412,6 +413,23 @@ async function main() {
     fromUsername = args[shortFromIdx + 1].toLowerCase();
   }
 
+  // Parse --from <number> (resume from a specific index, 1-based)
+  let fromNumber = null;
+  const fromNumIdx = args.indexOf("--from");
+  if (fromNumIdx !== -1 && fromNumIdx + 1 < args.length) {
+    const val = parseInt(args[fromNumIdx + 1], 10);
+    if (!isNaN(val) && val > 0) {
+      fromNumber = val;
+    }
+  }
+  const shortFromNumIdx = args.indexOf("-n");
+  if (shortFromNumIdx !== -1 && shortFromNumIdx + 1 < args.length && !fromNumber) {
+    const val = parseInt(args[shortFromNumIdx + 1], 10);
+    if (!isNaN(val) && val > 0) {
+      fromNumber = val;
+    }
+  }
+
   if (!fileArg || args.includes("--help") || args.includes("-h")) {
     console.log(`
 Instagram Brave Remover
@@ -424,6 +442,8 @@ USAGE:
   node scripts/unfollow-brave.mjs <approved-accounts.json> --resume
   node scripts/unfollow-brave.mjs <approved-accounts.json> --from-username <username>
   node scripts/unfollow-brave.mjs <approved-accounts.json> -u <username>
+  node scripts/unfollow-brave.mjs <approved-accounts.json> --from <number>
+  node scripts/unfollow-brave.mjs <approved-accounts.json> -n <number>
 
   The input JSON file is what you export from the app's Review page.
   Use: Export → JSON — Approved only
@@ -436,10 +456,10 @@ HOW IT WORKS:
   • Clicks Remove → confirms Remove
   • Pace: ~${TARGET_PER_HOUR} removals per hour (~${Math.round(BETWEEN_ACCOUNT_MS / 1000)} sec each)
   • Sessions: ~${SESSION_ACCOUNTS} removals (~${SESSION_MINUTES} min), then saves & exits
-  • Resume later with --resume or resume from any username with --from-username
+  • Resume later with --resume, --from-username, or --from <number>
 
 Pacing:
-  Between each removal: ${Math.round((BETWEEN_ACCOUNT_MS - JITTER_MS) / 1000)}–${Math.round((BETWEEN_ACCOUNT_MS + JITTER_MS) / 1000)} seconds
+  Between each removal: ${Math.round((BETWEEN_ACCOUNT_MS - JITTER_MS) / 1000)}–${Math.round((BETWEEN_ACCOUNT_MS + JITTER_MS) / 1000)} seconds (~5-8/min)
   Per session: ~${SESSION_ACCOUNTS} accounts (~${SESSION_MINUTES} minutes)
   You can run multiple sessions with breaks in between
 `);
@@ -485,18 +505,26 @@ Pacing:
   console.log("╚══════════════════════════════════════════════╝");
   console.log("");
   console.log(`   🎯 ${profiles.length} accounts to remove`);
-  console.log(`   ⏱ Pace: ~${TARGET_PER_HOUR}/hour (${Math.round((BETWEEN_ACCOUNT_MS - JITTER_MS) / 1000)}–${Math.round((BETWEEN_ACCOUNT_MS + JITTER_MS) / 1000)}s each)`);
+  console.log(`   ⏱ Pace: ~${TARGET_PER_HOUR}/hour (~${Math.round(TARGET_PER_HOUR / 60)}/min) (${Math.round((BETWEEN_ACCOUNT_MS - JITTER_MS) / 1000)}–${Math.round((BETWEEN_ACCOUNT_MS + JITTER_MS) / 1000)}s each)`);
   console.log(`   📦 Sessions: ~${SESSION_ACCOUNTS} accounts per session`);
   console.log(`   💾 Progress saved — resume anytime with --resume`);
   console.log("");
 
-  // ── Resume from progress or specific username ──
+  // ── Resume from progress, specific username, or specific number ──
   let startIndex = 0;
   let session = 1;
   let results = { removed: 0, skipped: 0, errors: 0 };
 
-  // If --from-username is given, find that username in the list
-  if (fromUsername) {
+  // If --from <number> is given, start from that 1-based index
+  if (fromNumber !== null) {
+    startIndex = fromNumber - 1; // Convert to 0-based
+    if (startIndex >= profiles.length) {
+      console.log(`   ❌ Starting index #${fromNumber} is beyond the list (${profiles.length} accounts total).`);
+      process.exit(1);
+    }
+    log(`📋 Starting from account #${fromNumber}/${profiles.length}: @${profiles[startIndex].username}`);
+    console.log("");
+  } else if (fromUsername) {
     const foundIdx = profiles.findIndex((p) => p.username.toLowerCase() === fromUsername);
     if (foundIdx === -1) {
       console.log(`   ❌ Username "@${fromUsername}" not found in the list.`);

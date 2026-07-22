@@ -378,10 +378,32 @@ async function main() {
   }
   log(`👤 @${myUsername}`);
 
-  // ── Resume from progress (not in test mode) ──
+  // ── Parse --from <number> (resume from a specific index, 1-based) ──
+  let fromNumber = null;
+  const fromNumIdx = args.indexOf("--from");
+  if (fromNumIdx !== -1 && fromNumIdx + 1 < args.length) {
+    const val = parseInt(args[fromNumIdx + 1], 10);
+    if (!isNaN(val) && val > 0) fromNumber = val;
+  }
+  const shortFromNumIdx = args.indexOf("-n");
+  if (shortFromNumIdx !== -1 && shortFromNumIdx + 1 < args.length && !fromNumber) {
+    const val = parseInt(args[shortFromNumIdx + 1], 10);
+    if (!isNaN(val) && val > 0) fromNumber = val;
+  }
+
+  // ── Resume from progress or specific number (not in test mode) ──
   let startIndex = 0;
   let savedProgress = null;
-  if (!isTest) {
+
+  if (fromNumber !== null) {
+    startIndex = fromNumber - 1; // Convert to 0-based
+    if (startIndex >= profiles.length) {
+      console.log(`   ❌ Starting index #${fromNumber} is beyond the list (${profiles.length} accounts total).`);
+      process.exit(1);
+    }
+    console.log(`\n📋 Starting from account #${fromNumber}/${profiles.length}: @${profiles[startIndex].username}`);
+    console.log("");
+  } else if (!isTest) {
     savedProgress = loadProgress();
     if (savedProgress && savedProgress.completed > 0) {
       console.log(`\n📋 Saved progress: ${savedProgress.completed}/${profiles.length} done (${savedProgress.errors} errors, ${savedProgress.skipped} skipped)`);
