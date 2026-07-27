@@ -11,6 +11,7 @@ const FIELD_OPTIONS: { value: RuleField; label: string }[] = [
   { value: "following_count", label: "Following" },
   { value: "posts_count", label: "Posts" },
   { value: "has_profile_pic", label: "Has Profile Picture" },
+  { value: "is_default_profile_pic", label: "Default Instagram Avatar" },
   { value: "is_private", label: "Private Account" },
   { value: "is_verified", label: "Verified Account" },
   { value: "is_business", label: "Business Account" },
@@ -20,6 +21,14 @@ const FIELD_OPTIONS: { value: RuleField; label: string }[] = [
   { value: "account_age_days", label: "Account Age (days)" },
   { value: "followers_following_ratio", label: "Followers / Following Ratio" },
   { value: "username_digit_count", label: "Digits in Username" },
+  // 🆕 Fake detection fields
+  { value: "is_all_digits_username", label: "All-Digits Username" },
+  { value: "is_username_gibberish", label: "Gibberish Username (No Vowels)" },
+  { value: "trailing_digit_count", label: "Trailing Digits in Username" },
+  { value: "is_bio_empty", label: "Empty Bio" },
+  { value: "is_full_name_empty", label: "Empty Full Name" },
+  { value: "is_followers_zero", label: "Zero Followers" },
+  { value: "is_following_zero", label: "Zero Following" },
 ];
 
 const OPERATOR_OPTIONS: { value: RuleOperator; label: string; type: "num" | "str" | "bool" }[] = [
@@ -36,8 +45,13 @@ const OPERATOR_OPTIONS: { value: RuleOperator; label: string; type: "num" | "str
 const NUMERIC_FIELDS = new Set<RuleField>([
   "followers_count", "following_count", "posts_count",
   "account_age_days", "followers_following_ratio", "username_digit_count",
+  "trailing_digit_count",
 ]);
-const BOOL_FIELDS = new Set<RuleField>(["has_profile_pic", "is_private", "is_verified", "is_business"]);
+const BOOL_FIELDS = new Set<RuleField>([
+  "has_profile_pic", "is_private", "is_verified", "is_business",
+  "is_default_profile_pic", "is_all_digits_username", "is_username_gibberish",
+  "is_bio_empty", "is_full_name_empty", "is_followers_zero", "is_following_zero",
+]);
 
 function getOpsForField(field: RuleField): RuleOperator[] {
   if (NUMERIC_FIELDS.has(field)) return ["gt", "lt", "eq", "neq"];

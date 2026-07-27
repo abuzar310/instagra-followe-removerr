@@ -483,113 +483,184 @@ export default function ReviewPage() {
         Showing {safePage * PER_PAGE + 1}–{Math.min((safePage + 1) * PER_PAGE, filtered.length)} of {filtered.length}
       </div>
 
-      {/* Preview Modal */}
+      {/* Preview Modal — Instagram-style profile card */}
       {preview && (
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={(e) => { if (e.target === e.currentTarget) { saveNotes(); setPreview(null); } }}
         >
-          <div className="card w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <Avatar src={preview.profile_pic_url} username={preview.username} size={52} />
-                <div>
-                  <h2 className="text-lg font-semibold text-white">@{preview.username}</h2>
-                  {preview.full_name && (
-                    <p className="text-sm text-[#a1a1aa]">{preview.full_name}</p>
+          <div className="card w-full max-w-lg max-h-[85vh] overflow-y-auto p-0 animate-in fade-in zoom-in-95 duration-150">
+            {/* Cover area with gradient */}
+            <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] px-6 pt-8 pb-6 rounded-t-xl relative">
+              <button className="absolute top-3 right-3 btn btn-ghost btn-sm p-1.5" onClick={() => { saveNotes(); setPreview(null); }}>
+                <X size={16} />
+              </button>
+
+              {/* Big profile photo */}
+              <div className="flex flex-col items-center text-center">
+                <div className="relative mb-3">
+                  <Avatar src={preview.profile_pic_url} username={preview.username} size={88} />
+                  {/* Profile pic status badge */}
+                  {!preview.has_profile_pic && preview.profile_pic_url && (
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#eab308] rounded-full flex items-center justify-center border-2 border-[#1a1a2e]" title="Default Instagram avatar">
+                      <span className="text-[9px]">⬜</span>
+                    </div>
+                  )}
+                  {preview.is_verified && (
+                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-[#0095f6] rounded-full flex items-center justify-center border-2 border-[#1a1a2e]">
+                      <svg viewBox="0 0 24 24" className="w-3 h-3 text-white" fill="currentColor">
+                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                <h2 className="text-lg font-bold text-white">{preview.full_name || `@${preview.username}`}</h2>
+                <p className="text-sm text-[#a1a1aa]">@{preview.username}</p>
+
+                {/* Badges row */}
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap justify-center">
+                  {preview.is_private && (
+                    <span className="text-[10px] font-medium bg-[rgba(239,68,68,0.15)] text-[#ef4444] px-2 py-0.5 rounded-full border border-[rgba(239,68,68,0.2)]">🔒 Private</span>
+                  )}
+                  {preview.is_verified && (
+                    <span className="text-[10px] font-medium bg-[rgba(0,149,246,0.15)] text-[#0095f6] px-2 py-0.5 rounded-full border border-[rgba(0,149,246,0.2)]">✅ Verified</span>
+                  )}
+                  {preview.is_business && (
+                    <span className="text-[10px] font-medium bg-[rgba(99,102,241,0.15)] text-[#6366f1] px-2 py-0.5 rounded-full border border-[rgba(99,102,241,0.2)]">💼 Business</span>
+                  )}
+                  {!preview.has_profile_pic && preview.profile_pic_url && (
+                    <span className="text-[10px] font-medium bg-[rgba(234,179,8,0.15)] text-[#eab308] px-2 py-0.5 rounded-full border border-[rgba(234,179,8,0.2)]">⬜ Default Avatar</span>
                   )}
                 </div>
               </div>
-              <button className="btn btn-ghost btn-sm p-1.5" onClick={() => { saveNotes(); setPreview(null); }}>
-                <X size={16} />
-              </button>
-            </div>
 
-            {/* Detail grid */}
-            <div className="grid grid-cols-2 gap-2.5 mb-4">
-              <div className="bg-[#121214] rounded-lg p-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-[#52525b] mb-0.5">Followers</div>
-                <div className="text-base font-semibold text-white">{preview.followers_count.toLocaleString()}</div>
-              </div>
-              <div className="bg-[#121214] rounded-lg p-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-[#52525b] mb-0.5">Following</div>
-                <div className="text-base font-semibold text-white">{preview.following_count.toLocaleString()}</div>
-              </div>
-              <div className="bg-[#121214] rounded-lg p-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-[#52525b] mb-0.5">Posts</div>
-                <div className="text-base font-semibold text-white">{preview.posts_count.toLocaleString()}</div>
-              </div>
-              <div className="bg-[#121214] rounded-lg p-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-[#52525b] mb-0.5">Account Age</div>
-                <div className="text-base font-semibold text-white">
-                  {preview.account_age_days ? `${preview.account_age_days} days` : "Unknown"}
+              {/* Instagram-style stats row */}
+              <div className="flex items-center justify-center gap-8 mt-4 pt-4 border-t border-white/10">
+                <div className="text-center">
+                  <div className="text-base font-bold text-white">{preview.posts_count.toLocaleString()}</div>
+                  <div className="text-[10px] text-[#52525b] font-medium uppercase tracking-wider">Posts</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-base font-bold text-white">{preview.followers_count.toLocaleString()}</div>
+                  <div className="text-[10px] text-[#52525b] font-medium uppercase tracking-wider">Followers</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-base font-bold text-white">{preview.following_count.toLocaleString()}</div>
+                  <div className="text-[10px] text-[#52525b] font-medium uppercase tracking-wider">Following</div>
                 </div>
               </div>
-              <div className="bg-[#121214] rounded-lg p-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-[#52525b] mb-0.5">Private</div>
-                <div className="text-base font-semibold text-white">{preview.is_private ? "Yes" : "No"}</div>
-              </div>
-              <div className="bg-[#121214] rounded-lg p-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-[#52525b] mb-0.5">Verified</div>
-                <div className="text-base font-semibold text-white">{preview.is_verified ? "Yes" : "No"}</div>
-              </div>
             </div>
 
-            {/* Suspicion reasons */}
-            {preview.suspicion_reasons.length > 0 && (
-              <div className="bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.15)] rounded-lg p-4 mb-4">
-                <div className="text-xs font-semibold uppercase tracking-wider text-[#ef4444] mb-2">
-                  <AlertTriangle size={12} className="inline mr-1" />
-                  Suspicion Reasons — Score {preview.suspicion_score}/100
+            {/* Body content */}
+            <div className="p-6 space-y-4">
+              {/* Score indicator */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-2 rounded-full bg-[#27272a] overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${preview.suspicion_score}%`,
+                      background: preview.suspicion_score >= 60
+                        ? 'linear-gradient(90deg, #eab308, #ef4444)'
+                        : preview.suspicion_score >= 30
+                          ? 'linear-gradient(90deg, #22c55e, #eab308)'
+                          : 'linear-gradient(90deg, #22c55e, #16a34a)',
+                    }}
+                  />
                 </div>
-                <ul className="space-y-1">
-                  {preview.suspicion_reasons.map((reason, i) => (
-                    <li key={i} className="text-sm text-[#ef4444]/80">• {reason}</li>
-                  ))}
-                </ul>
+                <span
+                  className="text-xs font-bold font-mono"
+                  style={{
+                    color: preview.suspicion_score >= 60 ? '#ef4444' : preview.suspicion_score >= 30 ? '#eab308' : '#22c55e',
+                  }}
+                >
+                  {preview.suspicion_score}/100
+                </span>
               </div>
-            )}
 
-            {preview.suspicion_reasons.length === 0 && (
-              <div className="bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.15)] rounded-lg p-4 mb-4">
-                <p className="text-sm text-[#22c55e]">No suspicion flags raised for this account.</p>
-              </div>
-            )}
-
-            {/* Biography */}
-            {preview.biography && (
-              <div className="bg-[#121214] rounded-lg p-3 mb-4 text-sm text-[#a1a1aa] italic">
-                "{preview.biography}"
-              </div>
-            )}
-
-            {/* Notes */}
-            <div className="mb-4">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#52525b] mb-1.5">Notes</label>
-              <textarea
-                className="input w-full resize-y min-h-[60px]"
-                value={notesDraft}
-                onChange={(e) => setNotesDraft(e.target.value)}
-                onBlur={saveNotes}
-                placeholder="Add a note about this account..."
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              {(!preview.reviewed || preview.approved === false) && (
-                <button className="btn btn-primary flex-1 justify-center" onClick={() => { handleApprove(preview.id); setPreview(null); }}>
-                  <CheckCircle size={14} /> Approve
-                </button>
+              {/* Bio */}
+              {preview.biography ? (
+                <div className="text-sm text-[#a1a1aa] leading-relaxed">
+                  {preview.biography}
+                </div>
+              ) : (
+                <div className="text-sm text-[#52525b] italic">No bio</div>
               )}
-              {(!preview.reviewed || preview.approved === true) && (
-                <button className="btn btn-danger flex-1 justify-center" onClick={() => { handleReject(preview.id); setPreview(null); }}>
-                  <XCircle size={14} /> Reject
-                </button>
+
+              {/* External URL */}
+              {preview.external_url && (
+                <div className="text-sm">
+                  <span className="text-[#52525b]">🔗 </span>
+                  <a href={preview.external_url} target="_blank" rel="noopener noreferrer" className="text-[#0095f6] hover:underline">
+                    {preview.external_url.replace(/^https?:\/\//, '').slice(0, 40)}
+                  </a>
+                </div>
               )}
-              <button className="btn btn-ghost" onClick={() => { saveNotes(); setPreview(null); }}>
-                Close
-              </button>
+
+              {/* Account age */}
+              <div className="text-xs text-[#52525b]">
+                {preview.account_age_days
+                  ? `Account created ${preview.account_age_days} days ago`
+                  : 'Account age unknown'}
+              </div>
+
+              {/* Suspicion reasons */}
+              {preview.suspicion_reasons.length > 0 && (
+                <div className="bg-[rgba(239,68,68,0.06)] border border-[rgba(239,68,68,0.15)] rounded-xl p-4">
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <AlertTriangle size={14} className="text-[#ef4444]" />
+                    <span className="text-xs font-semibold text-[#ef4444]">Suspicion Flags ({preview.suspicion_reasons.length})</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {preview.suspicion_reasons.map((reason, i) => (
+                      <span
+                        key={i}
+                        className="text-[11px] font-medium bg-[rgba(239,68,68,0.1)] text-[#ef4444]/80 px-2 py-1 rounded-md border border-[rgba(239,68,68,0.1)]"
+                      >
+                        🚩 {reason}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {preview.suspicion_reasons.length === 0 && (
+                <div className="bg-[rgba(34,197,94,0.06)] border border-[rgba(34,197,94,0.15)] rounded-xl p-4">
+                  <p className="text-sm text-[#22c55e] flex items-center gap-1.5">
+                    ✅ No suspicion flags raised
+                  </p>
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#52525b] mb-1.5">Notes</label>
+                <textarea
+                  className="input w-full resize-y min-h-[56px] text-sm"
+                  value={notesDraft}
+                  onChange={(e) => setNotesDraft(e.target.value)}
+                  onBlur={saveNotes}
+                  placeholder="Add a note about this account..."
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-1">
+                {(!preview.reviewed || preview.approved === false) && (
+                  <button className="btn btn-primary flex-1 justify-center" onClick={() => { handleApprove(preview.id); setPreview(null); }}>
+                    <CheckCircle size={14} /> Approve to Unfollow
+                  </button>
+                )}
+                {(!preview.reviewed || preview.approved === true) && (
+                  <button className="btn btn-danger flex-1 justify-center" onClick={() => { handleReject(preview.id); setPreview(null); }}>
+                    <XCircle size={14} /> Keep (Reject)
+                  </button>
+                )}
+                <button className="btn btn-ghost" onClick={() => { saveNotes(); setPreview(null); }}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -11,14 +11,22 @@ const UNFOLLOW_QUEUE_KEY = "ifr_unfollow_queue";
 // ── Default rules ──
 const DEFAULT_RULES: Rule[] = [
   { id: uuid(), name: "Zero posts", field: "posts_count", operator: "eq", value: "0", points: 30, enabled: true, color: "#ef4444" },
-  { id: uuid(), name: "Few followers (<20)", field: "followers_count", operator: "lt", value: "20", points: 25, enabled: true, color: "#f97316" },
-  { id: uuid(), name: "High following (>2000)", field: "following_count", operator: "gt", value: "2000", points: 20, enabled: true, color: "#eab308" },
-  { id: uuid(), name: "No profile pic", field: "has_profile_pic", operator: "is_false", value: "", points: 20, enabled: true, color: "#06b6d4" },
-  { id: uuid(), name: "Many numbers in username", field: "username_digit_count", operator: "gt", value: "4", points: 15, enabled: true, color: "#8b5cf6" },
-  { id: uuid(), name: "Following >> followers", field: "followers_following_ratio", operator: "lt", value: "0.1", points: 25, enabled: true, color: "#ec4899" },
+  { id: uuid(), name: "Few followers (<20)", field: "followers_count", operator: "lt", value: "20", points: 20, enabled: true, color: "#f97316" },
+  { id: uuid(), name: "Zero followers", field: "is_followers_zero", operator: "is_true", value: "", points: 20, enabled: true, color: "#ef4444" },
+  { id: uuid(), name: "High following (>1000)", field: "following_count", operator: "gt", value: "1000", points: 20, enabled: true, color: "#eab308" },
+  { id: uuid(), name: "Following >> followers", field: "followers_following_ratio", operator: "lt", value: "0.3", points: 25, enabled: true, color: "#ec4899" },
+  { id: uuid(), name: "Following >> followers (extreme)", field: "followers_following_ratio", operator: "eq", value: "0", points: 15, enabled: true, color: "#f97316" },
+  { id: uuid(), name: "All-digits username", field: "is_all_digits_username", operator: "is_true", value: "", points: 25, enabled: true, color: "#ef4444" },
+  { id: uuid(), name: "Gibberish username (no vowels)", field: "is_username_gibberish", operator: "is_true", value: "", points: 15, enabled: true, color: "#8b5cf6" },
+  { id: uuid(), name: "Many numbers in username", field: "username_digit_count", operator: "gt", value: "4", points: 10, enabled: true, color: "#a855f7" },
+  { id: uuid(), name: "Username trailing digits (5+)", field: "trailing_digit_count", operator: "gt", value: "4", points: 10, enabled: true, color: "#f97316" },
+  { id: uuid(), name: "No profile pic", field: "has_profile_pic", operator: "is_false", value: "", points: 15, enabled: true, color: "#06b6d4" },
+  { id: uuid(), name: "Default profile picture", field: "is_default_profile_pic", operator: "is_true", value: "", points: 10, enabled: true, color: "#06b6d4" },
+  { id: uuid(), name: "Empty bio", field: "is_bio_empty", operator: "is_true", value: "", points: 10, enabled: true, color: "#eab308" },
+  { id: uuid(), name: "No full name", field: "is_full_name_empty", operator: "is_true", value: "", points: 5, enabled: true, color: "#6b7280" },
+  { id: uuid(), name: "Zero following", field: "is_following_zero", operator: "is_true", value: "", points: 10, enabled: true, color: "#ef4444" },
   { id: uuid(), name: "Not verified", field: "is_verified", operator: "is_false", value: "", points: 5, enabled: true, color: "#6b7280" },
-  { id: uuid(), name: "Suspicious username pattern", field: "username", operator: "contains", value: "bot", points: 15, enabled: false, color: "#8b5cf6" },
-  { id: uuid(), name: "Private account", field: "is_private", operator: "is_true", value: "", points: 10, enabled: true, color: "#6b7280" },
+  { id: uuid(), name: "Private account", field: "is_private", operator: "is_true", value: "", points: 5, enabled: true, color: "#6b7280" },
 ];
 
 // ── Read / Write ──
@@ -72,6 +80,15 @@ function evaluateRule(f: Follower, rule: Rule): boolean {
       case "is_business": return f.is_business;
       case "username_digit_count": return (f.username.match(/\d/g) || []).length;
       case "followers_following_ratio": return f.following_count > 0 ? f.followers_count / f.following_count : 0;
+      // 🆕 Fake detection computed fields
+      case "is_default_profile_pic": return !f.has_profile_pic && !!f.profile_pic_url;
+      case "is_all_digits_username": return /^\d+$/.test(f.username);
+      case "is_username_gibberish": return f.username.length >= 4 && !/[aeiou]/i.test(f.username);
+      case "is_bio_empty": return !f.biography || f.biography.trim() === "";
+      case "is_full_name_empty": return !f.full_name || f.full_name.trim() === "";
+      case "is_followers_zero": return f.followers_count === 0;
+      case "is_following_zero": return f.following_count === 0;
+      case "trailing_digit_count": return (f.username.match(/\d+$/)?.[0]?.length || 0);
     }
   };
   const val = getVal();
@@ -148,7 +165,10 @@ export function importFollowers(raw: Record<string, any>[], filename: string): {
       posts_count: parseInt(r.posts_count ?? r.posts ?? r.mediaCount ?? r.postCount ?? 0),
       is_private: r.is_private === true || r.isPrivate === true || r.private === true,
       is_verified: r.is_verified === true || r.isVerified === true || r.verified === true,
-      has_profile_pic: r.has_profile_pic === true || r.hasProfilePic === true || r.has_profile_picture === true || r.profile_pic_url ? true : false,
+      // has_anonymous_profile_picture=true means Instagram's default silhouette — not a real pic
+      has_profile_pic: r.has_anonymous_profile_picture === true
+        ? false
+        : (r.has_profile_pic === true || r.hasProfilePic === true || r.has_profile_picture === true || !!r.profile_pic_url),
       profile_pic_url: r.profile_pic_url || r.profilePicUrl || r.avatar || "",
       account_age_days: r.account_age_days ?? r.accountAgeDays ?? null,
       external_url: r.external_url ?? r.externalUrl ?? null,

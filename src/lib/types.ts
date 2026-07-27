@@ -50,7 +50,16 @@ export type RuleField =
   | "is_private"
   | "is_business"
   | "followers_following_ratio"
-  | "username_digit_count";
+  | "username_digit_count"
+  // 🆕 Fake detection fields
+  | "is_default_profile_pic"
+  | "is_all_digits_username"
+  | "is_username_gibberish"
+  | "is_bio_empty"
+  | "is_full_name_empty"
+  | "is_followers_zero"
+  | "is_following_zero"
+  | "trailing_digit_count";
 
 export type RuleOperator = "gt" | "lt" | "eq" | "neq" | "contains" | "not_contains" | "is_true" | "is_false";
 
