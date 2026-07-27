@@ -35,7 +35,7 @@
 |--------|-----|----------|
 | **⚡ Quick Connect** | One click — browser pops up, captures session, auto-fetches | **Fastest** — already logged in on your computer |
 | **🔑 Manual Login** | Type username/password in the app, auto-fills, handles 2FA | When you want to log in fresh |
-| **📟 DevTools Script** | Copy script → paste in Instagram console → paste data back | **Most reliable** — runs in your own browser, no automation |
+| **📟 DevTools Script** | Copy script → paste in Instagram console → paste data back | **Fallback** — runs in your own browser, no automation needed |
 
 ### 📊 Dashboard
 - **Suspicion scoring** — profiles are automatically scored 0–100 for bot/fake likelihood
@@ -140,9 +140,9 @@ Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
 ---
 
-#### 📟 Method C: DevTools Script (Most Reliable)
+#### 📟 Method C: DevTools Script (Fallback)
 
-Use this if the automated methods don't work for any reason:
+Use this if the automated methods don't work, or if you prefer a fully manual approach:
 
 1. Go to the **Connect** page → **DevTools Script** tab
 2. Click **"Copy Script"** to copy the JavaScript snippet
@@ -158,6 +158,8 @@ Use this if the automated methods don't work for any reason:
 - Nothing copied? The script prints the output in the console — right-click and copy manually
 
 ---
+
+> 💡 **Tip:** You can also use the terminal script `node scripts/fetch-instagram.mjs` to fetch followers via browser scrolling. It saves to `scripts/instagram-data.json` — then use the **Import** page to upload and analyze.
 
 ### Step 2: Review Accounts
 
@@ -179,14 +181,17 @@ Go to the **Rules** page to adjust how profiles are scored:
 - Add custom rules
 
 **Default rules flag accounts that:**
-- Have 0 posts (**30 points**)
-- Have fewer than 20 followers (**25 points**)
-- Follow more than 2000 accounts (**20 points**)
-- No profile picture (**20 points**)
-- 5+ digits in username (**15 points**)
-- Follower/following ratio < 0.1 (**25 points**)
-- Not verified (**5 points**)
-- Private account (**10 points**)
+
+| Rule | Points | What It Checks |
+|------|--------|---------------|
+| Zero posts | **30** | Account has 0 posts |
+| Few followers (<20) | **25** | Has fewer than 20 followers |
+| High following (>2000) | **20** | Follows more than 2000 accounts |
+| No profile pic | **20** | No profile picture |
+| Many digits in username | **15** | Username has 5+ digits (bot pattern) |
+| Following >> followers | **25** | Follower/following ratio < 0.1 |
+| Not verified | **5** | Account is not verified |
+| Private account | **10** | Account is private |
 
 ### Step 4: Unfollow
 
@@ -314,6 +319,7 @@ node scripts/unfollow-brave.mjs <approved.json> -f
 - ✅ Uses your **Brave** (or Chrome) browser profile
 - ✅ Searches the Followers dialog → clicks Remove → confirms
 - ✅ **Auto-block detection** — stops after 4+ consecutive "not found" errors (Instagram rate limit)
+- ✅ **Furious mode** (`-f`) — faster pacing for users who want speed over safety
 - ✅ Saves progress after every removal
 - ✅ Auto-continues between sessions
 - ✅ Press **Ctrl+C** anytime to stop safely
