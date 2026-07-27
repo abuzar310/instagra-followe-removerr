@@ -12,6 +12,7 @@ import {
   Download, MoreHorizontal, AlertTriangle, Eye, X, Rocket, Copy, Terminal,
 } from "lucide-react";
 import { downloadFile } from "@/lib/utils";
+import { useUnfollowStream } from "@/hooks/useUnfollowStream";
 
 const PER_PAGE = 50;
 
@@ -34,7 +35,10 @@ export default function ReviewPage() {
   const [showExport, setShowExport] = useState(false);
   const [showUnfollowDialog, setShowUnfollowDialog] = useState(false);
   const [unfollowCount, setUnfollowCount] = useState(0);
+  const [unfollowTab, setUnfollowTab] = useState<"manual" | "auto">("manual");
   const [copied, setCopied] = useState(false);
+  const [unfollowAccounts, setUnfollowAccounts] = useState<{ username: string; full_name?: string; profile_pic_url?: string }[]>([]);
+  const { state: unfollowState, start: startUnfollow, stop: stopUnfollow, reset: resetUnfollow } = useUnfollowStream();
   const searchRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => applyFilters(followers, filters), [followers, filters]);
@@ -130,8 +134,11 @@ export default function ReviewPage() {
     // Download the file using the existing helper
     downloadFile(JSON.stringify(data, null, 2), "to-unfollow.json", "application/json");
 
+    setUnfollowAccounts(data);
     setUnfollowCount(approved.length);
     setCopied(false);
+    setUnfollowTab("manual");
+    resetUnfollow();
     setShowUnfollowDialog(true);
   };
 
@@ -590,56 +597,236 @@ export default function ReviewPage() {
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setShowUnfollowDialog(false); }}
         >
-          <div className="card w-full max-w-md p-6 animate-in fade-in zoom-in-95 duration-150 text-center">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#ec4899] to-[#8b5cf6] flex items-center justify-center mx-auto mb-4">
-              <Rocket size={28} className="text-white" />
-            </div>
-
-            <h2 className="text-lg font-semibold text-white mb-1">Ready to Unfollow!</h2>
-            <p className="text-sm text-[#a1a1aa] mb-2">
-              <strong className="text-white text-lg">{unfollowCount}</strong> approved accounts ready to be removed
-            </p>
-
-            <div className="bg-[#121214] rounded-lg p-3 mb-4 text-left">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#52525b]">
-                  <Terminal size={12} className="inline mr-1" />
-                  Run this command
-                </span>
-                <button
-                  className="text-xs text-[#6366f1] hover:text-[#818cf8] flex items-center gap-1"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`node scripts/unfollow-brave.mjs to-unfollow.json`);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                >
-                  <Copy size={12} /> {copied ? "Copied!" : "Copy"}
-                </button>
-              </div>
-              <code className="block text-sm text-[#22d3ee] font-mono bg-black/40 rounded p-2 break-all">
-                node scripts/unfollow-brave.mjs to-unfollow.json
-              </code>
-            </div>
-
-            <div className="bg-[#121214] rounded-lg p-3 mb-4 text-left">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#52525b]">
-                🔥 Furious mode (faster, higher risk)
-              </span>
-              <code className="block text-sm text-[#22d3ee] font-mono bg-black/40 rounded p-2 mt-1 break-all">
-                node scripts/unfollow-brave.mjs to-unfollow.json -f
-              </code>
-            </div>
-
-            <div className="text-xs text-[#52525b] mb-5 space-y-1">
-              <p>✅ File <strong className="text-[#a1a1aa]">to-unfollow.json</strong> has been downloaded</p>
-              <p>📂 Make sure to run the command from the <strong className="text-[#a1a1aa]">insta-follower-review</strong> folder</p>
-            </div>
-
-            <div className="flex gap-2">
-              <button className="btn btn-primary flex-1 justify-center" onClick={() => setShowUnfollowDialog(false)}>
-                Got it!
+          <div className="card w-full max-w-lg p-0 animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            {/* Tabs */}
+            <div className="flex border-b border-[#27272a]">
+              <button
+                className={`flex-1 py-3 text-sm font-medium transition-colors relative ${unfollowTab === "manual" ? "text-white" : "text-[#52525b] hover:text-[#a1a1aa]"}`}
+                onClick={() => setUnfollowTab("manual")}
+              >
+                <Terminal size={14} className="inline mr-1.5" />
+                Manual
+                {unfollowTab === "manual" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#8b5cf6]" />
+                )}
               </button>
+              <button
+                className={`flex-1 py-3 text-sm font-medium transition-colors relative ${unfollowTab === "auto" ? "text-white" : "text-[#52525b] hover:text-[#a1a1aa]"}`}
+                onClick={() => setUnfollowTab("auto")}
+              >
+                <Rocket size={14} className="inline mr-1.5" />
+                Auto-Run
+                {unfollowTab === "auto" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#ec4899]" />
+                )}
+              </button>
+            </div>
+
+            <div className="p-6">
+              {/* ── MANUAL TAB ── */}
+              {unfollowTab === "manual" && (
+                <div className="text-center">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#ec4899] to-[#8b5cf6] flex items-center justify-center mx-auto mb-3">
+                    <Terminal size={22} className="text-white" />
+                  </div>
+
+                  <h2 className="text-lg font-semibold text-white mb-1">Manual Unfollow</h2>
+                  <p className="text-sm text-[#a1a1aa] mb-4">
+                    <strong className="text-white text-lg">{unfollowCount}</strong> approved accounts
+                  </p>
+
+                  <div className="bg-[#121214] rounded-lg p-3 mb-3 text-left">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-[#52525b]">
+                        <Terminal size={12} className="inline mr-1" />
+                        Run this command
+                      </span>
+                      <button
+                        className="text-xs text-[#6366f1] hover:text-[#818cf8] flex items-center gap-1"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`node scripts/unfollow-brave.mjs to-unfollow.json`);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                      >
+                        <Copy size={12} /> {copied ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                    <code className="block text-sm text-[#22d3ee] font-mono bg-black/40 rounded p-2 break-all">
+                      node scripts/unfollow-brave.mjs to-unfollow.json
+                    </code>
+                  </div>
+
+                  <div className="bg-[#121214] rounded-lg p-3 mb-4 text-left">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#52525b]">
+                      🔥 Furious mode (faster, higher risk)
+                    </span>
+                    <code className="block text-sm text-[#22d3ee] font-mono bg-black/40 rounded p-2 mt-1 break-all">
+                      node scripts/unfollow-brave.mjs to-unfollow.json -f
+                    </code>
+                  </div>
+
+                  <div className="text-xs text-[#52525b] mb-5 space-y-1">
+                    <p>✅ File <strong className="text-[#a1a1aa]">to-unfollow.json</strong> has been downloaded</p>
+                    <p>📂 Run the command from the project folder in your terminal</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button className="btn btn-primary flex-1 justify-center" onClick={() => setShowUnfollowDialog(false)}>
+                      Got it!
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── AUTO-RUN TAB ── */}
+              {unfollowTab === "auto" && (
+                <div className="text-center">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${unfollowState.status === "running" ? "bg-[#22c55e]" : unfollowState.status === "done" ? "bg-[#8b5cf6]" : unfollowState.status === "error" || unfollowState.blocked ? "bg-[#ef4444]" : unfollowState.status === "stopped" ? "bg-[#eab308]" : "bg-gradient-to-br from-[#ec4899] to-[#8b5cf6]"}`}>
+                    {unfollowState.status === "running" ? (
+                      <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : unfollowState.status === "done" ? (
+                      <Rocket size={22} className="text-white" />
+                    ) : unfollowState.blocked ? (
+                      <span className="text-white text-xl">🚫</span>
+                    ) : (
+                      <Rocket size={22} className="text-white" />
+                    )}
+                  </div>
+
+                  <h2 className="text-lg font-semibold text-white mb-1">
+                    {unfollowState.status === "idle" && "Auto-Run Unfollow"}
+                    {unfollowState.status === "running" && "Running..."}
+                    {unfollowState.status === "done" && "All Done! 🎉"}
+                    {unfollowState.status === "stopped" && "Stopped"}
+                    {(unfollowState.status === "error" || unfollowState.blocked) && "Stopped"}
+                  </h2>
+                  <p className="text-sm text-[#a1a1aa] mb-4">
+                    <strong className="text-white text-lg">{unfollowCount}</strong> approved accounts
+                  </p>
+
+                  {/* Live progress stats */}
+                  {(unfollowState.status === "running" || unfollowState.status === "done" || unfollowState.status === "stopped") && (
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.15)] rounded-lg p-2.5">
+                        <div className="text-lg font-bold text-[#22c55e]">{unfollowState.removed}</div>
+                        <div className="text-[10px] text-[#22c55e]/70 uppercase tracking-wider">Removed</div>
+                      </div>
+                      <div className="bg-[rgba(234,179,8,0.08)] border border-[rgba(234,179,8,0.15)] rounded-lg p-2.5">
+                        <div className="text-lg font-bold text-[#eab308]">{unfollowState.skipped}</div>
+                        <div className="text-[10px] text-[#eab308]/70 uppercase tracking-wider">Skipped</div>
+                      </div>
+                      <div className={`rounded-lg p-2.5 ${unfollowState.errors > 0 ? "bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.15)]" : "bg-[#121214]"}`}>
+                        <div className={`text-lg font-bold ${unfollowState.errors > 0 ? "text-[#ef4444]" : "text-[#52525b]"}`}>{unfollowState.errors}</div>
+                        <div className={`text-[10px] uppercase tracking-wider ${unfollowState.errors > 0 ? "text-[#ef4444]/70" : "text-[#52525b]"}`}>Errors</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Live progress bar */}
+                  {unfollowState.status === "running" && unfollowState.total > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-[#a1a1aa]">
+                          {unfollowState.removed + unfollowState.skipped + unfollowState.errors} / {unfollowState.total}
+                        </span>
+                        <span className="text-xs text-[#a1a1aa]">
+                          {Math.round(((unfollowState.removed + unfollowState.skipped + unfollowState.errors) / unfollowState.total) * 100)}%
+                        </span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-[#27272a] overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-300 ease-out"
+                          style={{
+                            width: `${((unfollowState.removed + unfollowState.skipped + unfollowState.errors) / unfollowState.total) * 100}%`,
+                            background: unfollowState.blocked
+                              ? 'linear-gradient(90deg, #ef4444, #dc2626)'
+                              : 'linear-gradient(90deg, #8b5cf6, #6366f1)',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Block warning */}
+                  {unfollowState.blocked && (
+                    <div className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-lg p-3 mb-3">
+                      <p className="text-xs font-semibold text-[#ef4444]">🚫 Instagram Block Detected</p>
+                      <p className="text-[11px] text-[#ef4444]/80 mt-0.5">
+                        Script stopped automatically. Wait a few hours then resume with --resume.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Status message */}
+                  {unfollowState.message && (
+                    <p className="text-xs text-[#a1a1aa] mb-3">{unfollowState.message}</p>
+                  )}
+
+                  {/* Log output */}
+                  {(unfollowState.status === "running" || unfollowState.status === "done" || unfollowState.status === "stopped" || unfollowState.blocked) && (
+                    <div className="bg-black/60 rounded-lg mb-4 text-left max-h-[180px] overflow-y-auto">
+                      <div className="p-2.5 space-y-0.5">
+                        {unfollowState.logs.slice(-20).map((log, i) => (
+                          <p key={i} className={`text-[11px] font-mono leading-relaxed ${log.stderr ? "text-[#ef4444]/70" : "text-[#a1a1aa]/80"}`}>
+                            {log.text}
+                          </p>
+                        ))}
+                        {unfollowState.status === "running" && (
+                          <p className="text-[11px] font-mono text-[#6366f1] animate-pulse">▌</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2">
+                    {unfollowState.status === "idle" && (
+                      <>
+                        <button
+                          className="btn flex-1 justify-center bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-white hover:from-[#db2777] hover:to-[#7c3aed]"
+                          onClick={() => startUnfollow(unfollowAccounts)}
+                        >
+                          <Rocket size={14} /> Start Auto-Run
+                        </button>
+                        <button
+                          className="btn btn-ghost flex-1 justify-center"
+                          onClick={() => setUnfollowTab("manual")}
+                        >
+                          Use Manual Instead
+                        </button>
+                      </>
+                    )}
+                    {unfollowState.status === "running" && (
+                      <button
+                        className="btn flex-1 justify-center bg-[#ef4444] text-white hover:bg-[#dc2626]"
+                        onClick={stopUnfollow}
+                      >
+                        <X size={14} /> Stop
+                      </button>
+                    )}
+                    {(unfollowState.status === "done" || unfollowState.status === "stopped" || unfollowState.status === "error" || unfollowState.blocked) && (
+                      <>
+                        <button
+                          className="btn btn-primary flex-1 justify-center"
+                          onClick={() => { resetUnfollow(); startUnfollow(unfollowAccounts); }}
+                        >
+                          <Rocket size={14} /> Run Again
+                        </button>
+                        <button
+                          className="btn btn-ghost"
+                          onClick={() => setShowUnfollowDialog(false)}
+                        >
+                          Close
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -654,10 +654,14 @@ Pacing:
   // In furious mode, run a bigger session since there are no delays
   const effectiveSessionAccounts = isFurious ? Math.min(100, SESSION_ACCOUNTS * 3) : SESSION_ACCOUNTS;
 
+  // ── Block detection ──
+  const BLOCK_THRESHOLD = 4;  // Consecutive "not found" errors = Instagram blocked you
+  let consecutiveNotFound = 0;
+
   // ── Removal loop ──
   let i = startIndex;
 
-  while (i < profiles.length) {
+  mainLoop: while (i < profiles.length) {
     const sessionStartAccount = i;
     const sessionEnd = Math.min(i + effectiveSessionAccounts, profiles.length);
     const sessionSize = sessionEnd - sessionStartAccount;
@@ -691,6 +695,8 @@ Pacing:
         await removeFollower(page, myUsername, username);
         log(`${label} ✅ @${username} — removed!`);
         results.removed++;
+        // Reset block counter on success — Instagram is working
+        consecutiveNotFound = 0;
       } catch (err) {
         const msg = err.message;
         if (
@@ -700,10 +706,32 @@ Pacing:
         ) {
           log(`${label} ⏭ @${username} — ${msg}`);
           results.skipped++;
+          // This is a "not found" scenario — count it towards block detection
+          consecutiveNotFound++;
         } else {
           log(`${label} ❌ @${username} — ${msg}`);
           results.errors++;
+          // Non-search errors (timeouts, page issues) don't count as block signal
+          consecutiveNotFound = 0;
         }
+      }
+
+      // ── Block check ──
+      if (consecutiveNotFound >= BLOCK_THRESHOLD) {
+        log(`⚠️  ${consecutiveNotFound} consecutive accounts not found in search results.`);
+        log("🚫 Instagram has likely blocked or rate-limited your account.");
+        console.log("");
+        console.log("   ❗ THE SCRIPT HAS STOPPED AUTOMATICALLY.");
+        console.log("     Instagram is not returning search results — this means");
+        console.log("     your account has been rate-limited or temporarily blocked.");
+        console.log("");
+        console.log("   📋 Progress has been saved. To resume later:");
+        console.log(`     node scripts/unfollow-brave.mjs ${fileArg} --resume`);
+        console.log("");
+        console.log("   ⏳ Wait at least a few hours (or 24h) before resuming.");
+        console.log("     Running too soon will trigger the block again.");
+        console.log("");
+        break mainLoop;
       }
 
       // Close any lingering confirmation dialogs
