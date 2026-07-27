@@ -1,78 +1,76 @@
-# Instagram Follower Review & Remover
+<div align="center">
 
-> A full-stack tool to **fetch, analyze, review, and remove** Instagram followers — all from your local machine. No third-party services, no API keys required, no rate limits.
+# 📸 Instagram Follower Review & Remover
 
-![Tech Stack](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss)
-![Playwright](https://img.shields.io/badge/Playwright-1.61-green?logo=playwright)
+**Fetch → Analyze → Review → Remove — All from your local machine.**
 
----
+[![Next.js](https://img.shields.io/badge/Next.js_16-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Playwright](https://img.shields.io/badge/Playwright_1.61-45ba4b?logo=playwright&logoColor=white)](https://playwright.dev/)
+[![Recharts](https://img.shields.io/badge/Recharts-22c55e?logo=react&logoColor=white)](https://recharts.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## 📋 Table of Contents
+**No third-party services · No API keys · Your data stays on your machine**
 
-- [✨ Features](#-features)
-- [🚀 Quick Start](#-quick-start)
-- [📖 Workflow Guide](#-workflow-guide)
-  - [Step 1: Connect Instagram](#step-1-connect-instagram-3-ways)
-  - [Step 2: Review Accounts](#step-2-review-accounts)
-  - [Step 3: Customize Rules](#step-3-customize-rules)
-  - [Step 4: Remove Followers](#step-4-unfollow)
-- [📊 Suspicion Scoring](#-suspicion-scoring)
-- [🗂️ Project Structure](#️-project-structure)
-- [🧰 Scripts Reference](#-scripts-reference)
-- [💾 Data Persistence](#-data-persistence)
-- [❓ FAQ](#-faq)
-- [🔧 Troubleshooting](#-troubleshooting)
+</div>
 
 ---
 
-## ✨ Features
+## ✨ Features at a Glance
 
-### 🔌 3 Ways to Connect Instagram
+<div>
+<table>
+<tr>
+<td width="50%" valign="top">
 
-| Method | How | Best For |
-|--------|-----|----------|
-| **⚡ Quick Connect** | One click — browser pops up, captures session, auto-fetches | **Fastest** — already logged in on your computer |
-| **🔑 Manual Login** | Type username/password in the app, auto-fills, handles 2FA | When you want to log in fresh |
-| **📟 DevTools Script** | Copy script → paste in Instagram console → paste data back | **Fallback** — runs in your own browser, no automation needed |
+### 🔌 3 Ways to Connect
+| Method | How |
+|--------|-----|
+| **⚡ Quick Connect** | One click — browser pops up, session captured, auto-fetches |
+| **🔑 Manual Login** | Type credentials in the app, auto-fills, handles 2FA |
+| **📟 DevTools Script** | Copy script → paste in console → paste data back |
 
-### 📊 Dashboard
-- **Suspicion scoring** — profiles are automatically scored 0–100 for bot/fake likelihood
-- **Visual charts** — bar chart shows score distribution across all accounts
-- **Account breakdown** — private accounts, verified, zero posts, no profile pic stats
-- **Import history** — see all your past data imports
-- **Backup & Restore** — export all data as JSON, restore later
+</td>
+<td width="50%" valign="top">
 
-### 🔍 Review Queue
-- **50 profiles per page** with pagination
-- **Powerful filters** — search by username, sort by score/followers/following/posts, filter by reviewed/approved/private/verified
-- **Bulk actions** — approve, reject, or delete multiple accounts at once
-- **Preview modal** — view detailed profile info, suspicion reasons, add notes
-- **Keyboard shortcuts** — `J`/`K` navigate pages, `S` focus search, `A` approve, `R` reject
-- **Export** — download as CSV or JSON (all or approved only)
-- **Auto-Run unfollow** — click "Start Unfollow" → choose **Manual** (terminal command) or **Auto-Run** (in-app with live progress bar, stop button, block detection)
+### 🚀 Unfollow
+| Mode | How |
+|------|-----|
+| **▶️ Auto-Run** | In-app with live progress bar, stats, logs, stop button |
+| **💻 Manual (CLI)** | Terminal script with `--resume`, `--furious`, `-u`, `-n` |
+| **🎯 Start From** | First account, specific username, or account number |
 
-### ⚙️ Suspicion Rules
-- **12 rule fields** — followers, following, posts, profile pic, private, verified, business, username, full name, bio, account age, follower/following ratio, digits in username
-- **Customizable points** — each rule has a slider (1–50 points) to weight its importance
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 📊 Dashboard & Review
+- Score distribution chart
+- Import history with timestamps
+- 50 profiles/page with pagination
+- Search by username, sort by score/followers/following
+- Filter by reviewed/approved/private/verified
+- Bulk approve / reject / delete
+- **Keyboard shortcuts:** `J`/`K` pages · `S` search · `A` approve · `R` reject
+- Export CSV or JSON (all or approved only)
+
+</td>
+<td width="50%" valign="top">
+
+### ⚙️ Smart Scoring
+- **12 rule fields** — followers, following, posts, profile pic, private, verified, business, username, bio, ratio, digit count, account age
+- **Customizable points** (1–50 slider per rule)
 - **Enable/disable** individual rules
-- **Reset to defaults** anytime
+- **Whitelist** — rejected accounts stay rejected forever
+- **Backup & Restore** — export all data as JSON
 
-### 🛡️ Whitelist
-- Accounts you reject (= want to keep) are automatically whitelisted
-- Whitelisted accounts never show up in the review queue again — even on re-fetches
-- Remove from whitelist to re-evaluate
-
-### 🚀 Unfollow Scripts (CLI)
-Four scripts to actually remove followers from Instagram:
-
-| Script | Method | Best For |
-|--------|--------|----------|
-| `unfollow-brave.mjs` | Browser UI (search → remove) | **Primary** — safe, paced, auto-block detection, saves progress |
-| `unfollow-ui.mjs` | Browser UI (same method) | Alternative with batch/spread modes |
-| `unfollow-instagram.mjs` | Instagram API | Old API-based approach |
-| `fetch-instagram.mjs` | Browser scrolling | Fetch followers/following lists |
+</td>
+</tr>
+</table>
+</div>
 
 ---
 
@@ -80,14 +78,12 @@ Four scripts to actually remove followers from Instagram:
 
 ### Prerequisites
 
-- **Node.js** 18+
-- **pnpm** (recommended) or npm
-- **Brave** or **Chrome** browser (for Quick Connect method, make sure you're logged into Instagram)
-- **Playwright browsers** installed (for Quick Connect / Manual Login):
-
-```bash
-npx playwright install chromium
-```
+| Requirement | Details |
+|-------------|---------|
+| **Node.js** | 18+ |
+| **Package manager** | pnpm (recommended) or npm |
+| **Browser** | Brave or Chrome (with Instagram logged in for Quick Connect) |
+| **Playwright browsers** | Run `npx playwright install chromium` |
 
 ### Installation
 
@@ -99,150 +95,151 @@ cd insta-follower-review
 # Install dependencies
 pnpm install
 
-# Start the web app
+# Install Playwright browser for login + unfollow features
+npx playwright install chromium
+
+# Start the app
 pnpm dev
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+Open **[http://localhost:3000](http://localhost:3000)** 🚀
 
 ---
 
 ## 📖 Workflow Guide
 
-### Step 1: Connect Instagram (3 Ways)
+### Step 1: Connect Instagram
 
-#### ⚡ Method A: Quick Connect (Fastest — 1 Click)
+Choose your favorite method on the **Connect** page:
 
-> **Requirement:** You must be logged into Instagram in your Brave or Chrome browser.
+<details>
+<summary><strong>⚡ Method A: Quick Connect</strong> (Fastest — 1 Click)</summary>
 
-1. Go to the **Connect** page
-2. Make sure **Quick Connect** tab is selected
-3. Click **"Quick Connect"** button
-4. A browser window will briefly open and close (this captures your Instagram session)
-5. Your followers and following **load automatically** in the app
-6. Done! Go to **Review** page
+> ✅ You must be logged into Instagram in your Brave or Chrome browser.
 
-*What happens behind the scenes:* The app uses Playwright to open your real browser profile (where Instagram knows you). It captures your session cookies, then uses Instagram's API to fetch your followers and following. The browser window closes automatically. No scripts, no copy-paste.
+1. Go to the **Connect** page → **Quick Connect** tab
+2. Click **"Quick Connect"**
+3. A browser window briefly opens and closes (captures your session)
+4. Your followers & following **load automatically**
+5. Done! Head to the **Review** page
+
+*Behind the scenes: Playwright opens your real browser profile, captures session cookies, then uses Instagram's API to fetch your data. No scripts, no copy-paste.*
+
+</details>
+
+<details>
+<summary><strong>🔑 Method B: Manual Login</strong> (Credentials)</summary>
+
+1. Go to the **Connect** page → **Manual Login** tab
+2. Type your **Instagram username** and **password**
+3. Click **"Login & Fetch"**
+4. A browser opens — credentials are filled automatically
+5. If you have **2FA**, complete it in the browser window
+6. Data loads automatically after login
+
+*🔒 Your credentials stay on YOUR machine — typed directly into Instagram's login page, never sent to any server.*
+
+</details>
+
+<details>
+<summary><strong>📟 Method C: DevTools Script</strong> (Fallback)</summary>
+
+1. **Connect** page → **DevTools Script** tab → **Copy Script**
+2. Open `instagram.com` in your browser (logged in)
+3. Press **F12** → **Console** tab → paste script → Enter
+4. Wait for **"📋 COPIED!"** message
+5. Come back → **Paste** tab → paste → **Import & Analyze**
+
+*Troubleshooting: Can't paste? Type `allow pasting` first. Nothing copied? Right-click the console output and copy manually.*
+
+</details>
+
+> 💡 **Alternative:** Run `node scripts/fetch-instagram.mjs` from terminal to fetch via browser scrolling. Then upload the saved file on the **Import** page.
 
 ---
-
-#### 🔑 Method B: Manual Login
-
-1. Go to the **Connect** page
-2. Select **Manual Login** tab
-3. Type your **Instagram username** (or email) and **password**
-4. Click **"Login & Fetch"**
-5. A browser window opens — the app fills in your credentials automatically
-6. If you have **2FA enabled**, complete the code/challenge in the browser window
-7. Once logged in, the browser closes and your data loads automatically
-
-*Security:* Your credentials stay on YOUR machine. They are typed directly into Instagram's login page (via Playwright) — never sent to any server.
-
----
-
-#### 📟 Method C: DevTools Script (Fallback)
-
-Use this if the automated methods don't work, or if you prefer a fully manual approach:
-
-1. Go to the **Connect** page → **DevTools Script** tab
-2. Click **"Copy Script"** to copy the JavaScript snippet
-3. Open `instagram.com` in your browser (must be logged in)
-4. Press **F12** to open DevTools → go to **Console** tab
-5. **Paste** the script and press **Enter**
-6. Wait for **"📋 COPIED TO CLIPBOARD!"** message
-7. Come back to the app → **Paste** tab
-8. Paste the data → click **"Import & Analyze"**
-
-*Troubleshooting:*
-- Can't paste in the console? Type `allow pasting` and press Enter first
-- Nothing copied? The script prints the output in the console — right-click and copy manually
-
----
-
-> 💡 **Tip:** You can also use the terminal script `node scripts/fetch-instagram.mjs` to fetch followers via browser scrolling. It saves to `scripts/instagram-data.json` — then use the **Import** page to upload and analyze.
 
 ### Step 2: Review Accounts
 
 1. Go to the **Review** page
-2. Profiles with scores **30+** are flagged yellow, **60+** are high risk red
-3. Click a profile to see **suspicion reasons** in detail
-4. **Approve** (checked = will be unfollowed) or **Reject** (kept forever)
-5. Use **keyboard shortcuts** for speed:
-   - `A` = approve, `R` = reject
-   - `J` = previous page, `K` = next page
-   - `S` = focus search
+2. Profiles scored **30+** are flagged 🟡 yellow, **60+** 🔴 high risk
+3. Click a profile to see detailed info + **suspicion reasons**
+4. **Approve** (✅ will be unfollowed) or **Reject** (❌ kept forever, whitelisted)
+5. Use keyboard shortcuts for speed:
 
-### Step 3: Customize Rules
+```
+A = Approve      R = Reject      J = Previous page
+K = Next page    S = Focus search    Esc = Close preview
+```
+
+---
+
+### Step 3: Customize Scoring Rules
 
 Go to the **Rules** page to adjust how profiles are scored:
 
-- Slide to change point values (1–50)
-- Toggle rules on/off
-- Add custom rules
-
-**Default rules flag accounts that:**
-
 | Rule | Points | What It Checks |
-|------|--------|---------------|
+|------|:------:|----------------|
 | Zero posts | **30** | Account has 0 posts |
 | Few followers (<20) | **25** | Has fewer than 20 followers |
 | High following (>2000) | **20** | Follows more than 2000 accounts |
+| Following >> followers | **25** | Follower/following ratio < 0.1 |
 | No profile pic | **20** | No profile picture |
 | Many digits in username | **15** | Username has 5+ digits (bot pattern) |
-| Following >> followers | **25** | Follower/following ratio < 0.1 |
-| Not verified | **5** | Account is not verified |
 | Private account | **10** | Account is private |
+| Not verified | **5** | Account is not verified |
+
+---
 
 ### Step 4: Unfollow
 
-After reviewing all accounts, you have two ways to unfollow:
+After reviewing, you have **two ways** to unfollow:
 
-#### Option A: Auto-Run (In-App)
+#### ▶️ Auto-Run (In-App)
 
-1. Go to the **Review** page
-2. Click **"Start Unfollow"**
-3. Select the **Auto-Run** tab
+1. Go to **Review** page → click **"Start Unfollow"** → **Auto-Run** tab
+2. **🎯 Start From:**
+   - **First account** — starts from the beginning
+   - **From username** — continues from a specific account
+   - **From account #** — jumps to a specific position
+3. Toggle **🔥 Furious Mode** if you want faster pace
 4. Click **"Start Auto-Run"**
-5. Watch live progress — bar, stats, and log update in real-time
-6. The script **auto-stops** if Instagram blocks you (4+ consecutive "not found" errors)
-7. Click **Stop** anytime — progress is saved, resume with `--resume`
+5. Watch live progress — real-time stats, progress bar, and logs
+6. **Auto-stops** if Instagram blocks you (4+ consecutive errors)
+7. Click **Stop** anytime — progress saved, resume later
 
-#### Option B: Manual (Terminal)
-
-1. On the Review page, click **"Start Unfollow"** → **Manual** tab
-2. Copy the terminal command shown
-3. Run it in your terminal:
+#### 💻 Manual (Terminal)
 
 ```bash
-node scripts/unfollow-brave.mjs ~/Downloads/to-unfollow.json
+# Start fresh
+node scripts/unfollow-brave.mjs to-unfollow.json
+
+# Resume from where you left off
+node scripts/unfollow-brave.mjs to-unfollow.json --resume
+
+# Start from a specific username
+node scripts/unfollow-brave.mjs to-unfollow.json -u someusername
+
+# Start from a specific account number (1-based)
+node scripts/unfollow-brave.mjs to-unfollow.json -n 50
+
+# Furious mode (faster pace)
+node scripts/unfollow-brave.mjs to-unfollow.json -f
 ```
 
-**Resume after stopping:**
-```bash
-node scripts/unfollow-brave.mjs ~/Downloads/to-unfollow.json --resume
-```
-
-**Start from a specific account:**
-```bash
-node scripts/unfollow-brave.mjs ~/Downloads/to-unfollow.json -u someusername
-```
-
-The script will:
-- Open your Brave/Chrome browser (with your profile where you're already logged in)
-- Go to your Instagram profile → click Followers
-- Search for each approved username → click Remove → confirm
-- Save progress **after every single removal**
+**The script:**
+- Opens your browser (logged in) → goes to profile → clicks Followers
+- Searches each username → clicks Remove → confirms
+- **Saves progress after EVERY removal**
+- **Auto-block detection** — stops if Instagram rate-limits you
 - Press **Ctrl+C** anytime to stop safely
-- Resume seamlessly with `--resume`
+- Resume with `--resume`
 
 ---
 
 ## 📊 Suspicion Scoring
 
-Each profile is scored **0–100** based on your configurable rules:
-
 | Score Range | Color | Meaning |
-|-------------|-------|---------|
+|:-----------:|:-----:|---------|
 | **0–19** | 🟢 Green | Normal account |
 | **20–39** | 🟡 Yellow | Flagged — review |
 | **40–59** | 🟠 Orange | Suspicious |
@@ -256,81 +253,67 @@ Each profile is scored **0–100** based on your configurable rules:
 insta-follower-review/
 ├── src/
 │   ├── app/
-│   │   ├── page.tsx                    # Dashboard
-│   │   ├── review/page.tsx             # Review Queue + Unfollow Dialog
-│   │   ├── import/page.tsx             # Import / Backup Restore
-│   │   ├── rules/page.tsx              # Suspicion Rules
-│   │   ├── whitelist/page.tsx          # Whitelist
-│   │   ├── connect/page.tsx            # Connect Instagram (3 methods)
-│   │   ├── layout.tsx                  # App layout + sidebar
-│   │   ├── globals.css                 # Tailwind styles
+│   │   ├── page.tsx                     # 📊 Dashboard
+│   │   ├── review/page.tsx              # 🔍 Review Queue + Unfollow Dialog
+│   │   ├── import/page.tsx              # 📥 Import / Backup Restore
+│   │   ├── rules/page.tsx               # ⚙️ Suspicion Rules
+│   │   ├── whitelist/page.tsx           # 🛡️ Whitelist
+│   │   ├── connect/page.tsx             # 🔌 Connect Instagram (3 methods)
+│   │   ├── layout.tsx                   # 🧩 App layout + sidebar
+│   │   ├── globals.css                  # 🎨 Tailwind styles
 │   │   └── api/
 │   │       ├── instagram/
-│   │       │   ├── auth/route.ts       # 🔐 Quick Connect + Manual Login (Playwright)
-│   │       │   ├── fetch/route.ts      # 📡 Fetch followers/following via Instagram API
-│   │       │   ├── proxy/route.ts      # 🔗 Proxy route for Instagram API calls
-│   │       │   └── browser/            # Legacy browser routes
+│   │       │   ├── auth/route.ts        # 🔐 Quick Connect + Manual Login
+│   │       │   ├── fetch/route.ts       # 📡 Fetch followers via Instagram API
+│   │       │   ├── proxy/route.ts       # 🔗 Proxy route for API calls
+│   │       │   └── browser/             # Legacy browser routes
 │   │       └── unfollow/
-│   │           ├── run/route.ts        # ▶️ Auto-run unfollow with SSE streaming
-│   │           └── stop/route.ts       # ⏹ Stop running unfollow process
+│   │           ├── run/route.ts         # ▶️ Auto-run unfollow (SSE)
+│   │           └── stop/route.ts        # ⏹ Stop unfollow process
 │   ├── components/
-│   │   ├── Sidebar.tsx                 # Navigation sidebar
-│   │   └── Avatar.tsx                  # Profile avatar component
+│   │   ├── Sidebar.tsx                  # 🧭 Navigation
+│   │   └── Avatar.tsx                   # 👤 Profile avatar
 │   ├── hooks/
-│   │   ├── useData.ts                  # Data hook (followers, rules, etc.)
-│   │   └── useUnfollowStream.ts        # 🔄 SSE hook for auto-run unfollow progress
+│   │   ├── useData.ts                   # 📦 Data hook
+│   │   └── useUnfollowStream.ts         # 🔄 SSE hook for auto-run
 │   └── lib/
-│       ├── store.ts                    # LocalStorage data layer + scoring engine
-│       ├── types.ts                    # TypeScript types
-│       ├── utils.ts                    # Shared utilities (downloadFile)
-│       └── ig-scraper-script.ts        # DevTools scraper script generator
+│       ├── store.ts                     # 💾 LocalStorage + scoring engine
+│       ├── types.ts                     # 📐 TypeScript types
+│       ├── utils.ts                     # 🔧 Shared utilities
+│       └── ig-scraper-script.ts         # 📜 DevTools script generator
 ├── scripts/
-│   ├── unfollow-brave.mjs              # 🏆 Main unfollow script (with block detection)
-│   ├── unfollow-ui.mjs                 # UI-based unfollow (alt method)
-│   ├── unfollow-instagram.mjs          # API-based unfollow (legacy)
-│   └── fetch-instagram.mjs             # Fetch followers via browser scrolling
+│   ├── unfollow-brave.mjs               # 🏆 Main unfollow script
+│   ├── unfollow-ui.mjs                  # UI-based unfollow (alt)
+│   ├── unfollow-instagram.mjs           # API-based unfollow (legacy)
+│   └── fetch-instagram.mjs              # Fetch followers via browser
 ├── package.json
 ├── next.config.ts
-├── tsconfig.json
-└── README.md
+└── tsconfig.json
 ```
 
 ---
 
 ## 🧰 Scripts Reference
 
-### `unfollow-brave.mjs` (🏆 Primary)
+### `unfollow-brave.mjs` 🏆 Primary
 
 ```bash
-# Start fresh
-node scripts/unfollow-brave.mjs <approved.json>
-
-# Resume after stopping
-node scripts/unfollow-brave.mjs <approved.json> --resume
-
-# Start from a specific username
-node scripts/unfollow-brave.mjs <approved.json> -u <username>
-
-# Furious mode (faster, less delay between removals)
-node scripts/unfollow-brave.mjs <approved.json> -f
+node scripts/unfollow-brave.mjs <file>              # Start fresh
+node scripts/unfollow-brave.mjs <file> --resume      # Resume
+node scripts/unfollow-brave.mjs <file> -u <user>     # From username
+node scripts/unfollow-brave.mjs <file> -n <number>   # From account #
+node scripts/unfollow-brave.mjs <file> -f            # Furious mode
 ```
 
-**Features:**
-- ✅ Uses your **Brave** (or Chrome) browser profile
-- ✅ Searches the Followers dialog → clicks Remove → confirms
-- ✅ **Auto-block detection** — stops after 4+ consecutive "not found" errors (Instagram rate limit)
-- ✅ **Furious mode** (`-f`) — faster pacing for users who want speed over safety
-- ✅ Saves progress after every removal
-- ✅ Auto-continues between sessions
-- ✅ Press **Ctrl+C** anytime to stop safely
-
-### `unfollow-ui.mjs` (Alternative)
-
-```bash
-node scripts/unfollow-ui.mjs <profiles.json>
-node scripts/unfollow-ui.mjs --batch <profiles.json>   # Burst mode
-node scripts/unfollow-ui.mjs --test <profiles.json>    # Test 1 account
-```
+| Feature | Description |
+|---------|-------------|
+| ✅ Browser profile | Uses your real Brave/Chrome login |
+| ✅ Safe search | Verifies username before clicking Remove |
+| ✅ Auto-block detect | Stops after 4 consecutive "not found" errors |
+| ✅ Progress save | Saved after EVERY single removal |
+| ✅ Furious mode | `-f` for faster pace (higher risk) |
+| ✅ Resume | `--resume` to continue from last position |
+| ✅ Start position | `-u <username>` or `-n <number>` |
 
 ### `fetch-instagram.mjs`
 
@@ -338,10 +321,7 @@ node scripts/unfollow-ui.mjs --test <profiles.json>    # Test 1 account
 node scripts/fetch-instagram.mjs
 ```
 
-- Opens your browser → goes to profile
-- Clicks Followers → scrolls to load ALL → saves
-- Same for Following
-- Output: `scripts/instagram-data.json`
+Fetches followers/following via browser UI scrolling (no API rate limits). Output: `scripts/instagram-data.json`.
 
 ---
 
@@ -349,83 +329,68 @@ node scripts/fetch-instagram.mjs
 
 ### App Data (Browser localStorage)
 
-All data is stored in your browser's **localStorage**:
-
-| Key | What it stores |
-|-----|---------------|
+| Key | Stores |
+|-----|--------|
 | `ifr_followers` | All imported profiles with scores & review status |
 | `ifr_rules` | Suspicion rules configuration |
 | `ifr_batches` | Import history |
 | `ifr_whitelist` | Kept accounts |
 
-**To avoid losing data:**
-1. Go to **Dashboard** → click **Backup** → downloads `.json` file
-2. App restarted? Go to **Import** page → **Restore Backup** → upload that file
+**Backup:** Dashboard → **Backup** → downloads `.json` → **Import** → **Restore Backup**
 
 ### Unfollow Script Progress
 
 | File | Contents |
 |------|----------|
-| `scripts/.brave-unfollow-progress.json` | Current progress of the unfollow script |
+| `scripts/.brave-unfollow-progress.json` | Current progress (removed, skipped, errors) |
 | `scripts/brave-removal-results.json` | Final results after completion |
 
 ---
 
 ## ❓ FAQ
 
-**Q: Will Instagram ban me?**
-A: No. The scripts simulate human behavior — ~75 removals/hour with random delays. The Quick Connect method uses your real browser profile (same as logging in normally). This is well within normal usage patterns.
+<details>
+<summary><strong>Will Instagram ban me?</strong></summary>
+No. The scripts simulate human behavior — ~75 removals/hour with random delays. The Quick Connect uses your real browser profile (same as logging in normally). This is well within normal usage patterns.
+</details>
 
-**Q: What if my laptop shuts down during unfollow?**
-A: The script saves progress **after every single removal**. Run `--resume` to continue from the last saved position. Worst case: you lose 1 account.
+<details>
+<summary><strong>What if my laptop shuts down?</strong></summary>
+The script saves progress <strong>after every single removal</strong>. Run <code>--resume</code> to continue from the last saved position. Worst case: you lose 1 account.
+</details>
 
-**Q: The Quick Connect / Manual Login opens a browser — is that safe?**
-A: Yes. Playwright opens your real Brave/Chrome browser with your profile. Your credentials are typed directly into Instagram's login page (on your machine) — never sent to any server. The browser closes automatically after capturing the session.
+<details>
+<summary><strong>Is the Quick Connect browser popup safe?</strong></summary>
+Yes. Playwright opens your real browser with your profile. Credentials are typed directly into Instagram's login page on YOUR machine. The browser closes automatically after capturing the session.
+</details>
 
-**Q: Can I deploy this to Vercel?**
-A: The web app can be deployed to Vercel, but the unfollow scripts and Quick Connect login need a real browser (Playwright) and cannot run serverless. Run locally for full functionality.
+<details>
+<summary><strong>Can I deploy this to Vercel?</strong></summary>
+The web app can be deployed to Vercel, but the unfollow scripts and Quick Connect need a real browser (Playwright) and cannot run serverless. Run locally for full functionality.
+</details>
 
-**Q: My data was lost after closing the app!**
-A: It's in your browser's localStorage — reopening `localhost:3000` should restore it. If the tab data was cleared, use **Dashboard → Backup → Restore** if you have a backup file.
+<details>
+<summary><strong>Data lost after closing the app?</strong></summary>
+It's in your browser's localStorage — reopening localhost:3000 should restore it. If cleared, use Dashboard → Backup → Restore if you have a backup file.
+</details>
 
-**Q: The unfollow script couldn't find the Followers button?**
-A: It tries multiple strategies to find and click the Followers button. If all fail, it dumps the page HTML so the selector can be fixed for newer Instagram layouts.
-
-**Q: Quick Connect says "Could not find browser profile"?**
-A: Make sure you have Brave or Chrome installed and have logged into Instagram at least once. The app looks for your browser's profile folder in the default Windows location.
+<details>
+<summary><strong>Unfollow script can't find the Followers button?</strong></summary>
+It tries 6 strategies to find and click the Followers button. If all fail, it dumps page HTML so the selector can be updated for newer Instagram layouts.
+</details>
 
 ---
 
 ## 🔧 Troubleshooting
 
-### "Could not find browser profile"
-- Make sure **Brave** or **Chrome** is installed
-- Make sure you've logged into Instagram in that browser at least once
-- The app looks in: `C:\Users\YOURNAME\AppData\Local\BraveSoftware\Brave-Browser\User Data\Default`
-
-### Quick Connect closes my browser tabs
-Playwright needs exclusive access to your browser profile, so it closes running browser instances. **Save your work before clicking Quick Connect.**
-
-### "Cannot paste in DevTools console"
-Type `allow pasting` and press Enter in the console, then paste again.
-
-### Auto-Run unfollow not working
-Make sure the app is running (`pnpm dev`), the unfollow script is in the `scripts/` directory, and you have Node.js installed.
-
-### Port already in use
-```bash
-# Kill the process on port 3000
-npx kill-port 3000
-# Or find and kill manually
-netstat -ano | findstr :3000
-taskkill /PID <PID> /F
-```
-
-### Playwright not installed
-If Quick Connect or Manual Login fails with a Playwright error:
-```bash
-npx playwright install chromium
-```
+| Issue | Solution |
+|-------|----------|
+| ❌ **Can't find browser profile** | Install Brave/Chrome and log into Instagram at least once |
+| ❌ **Quick Connect closes tabs** | Save your work first — Playwright needs exclusive browser access |
+| ❌ **Can't paste in DevTools** | Type `allow pasting` in the console first |
+| ❌ **Auto-Run not working** | Make sure app is running (`pnpm dev`) and scripts/ exists |
+| ❌ **Port 3000 in use** | `npx kill-port 3000` or `netstat -ano \| findstr :3000` + `taskkill /PID <PID> /F` |
+| ❌ **Playwright error** | Run `npx playwright install chromium` |
 
 ---
 
@@ -436,9 +401,9 @@ npx playwright install chromium
 | [Next.js 16](https://nextjs.org/) (App Router) | Web framework |
 | TypeScript | Language |
 | [Tailwind CSS 4](https://tailwindcss.com/) | Styling |
-| [Recharts](https://recharts.org/) | Charts |
+| [Recharts](https://recharts.org/) | Charts & data visualization |
 | [PapaParse](https://www.papaparse.com/) | CSV parsing |
-| [Playwright](https://playwright.dev/) | Browser automation (login + unfollow scripts) |
+| [Playwright](https://playwright.dev/) | Browser automation |
 | [Lucide React](https://lucide.dev/) | Icons |
 | [uuid](https://github.com/uuidjs/uuid) | ID generation |
 
@@ -446,4 +411,12 @@ npx playwright install chromium
 
 ## 📄 License
 
-MIT
+MIT — use it, modify it, share it.
+
+---
+
+<div align="center">
+  <strong>Made with ❤️ for a cleaner Instagram experience</strong>
+  <br/>
+  <sub>Not affiliated with Instagram or Meta</sub>
+</div>

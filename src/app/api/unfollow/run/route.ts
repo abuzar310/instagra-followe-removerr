@@ -26,12 +26,12 @@ export function getRunningProcess(): ProcessInfo | null {
 }
 
 /* ── POST /api/unfollow/run ──
- * Accepts: { accounts: Array<{ username: string }>, furious?: boolean }
+ * Accepts: { accounts, furious?, startFrom?: "first" | { type: "username", value: string } | { type: "number", value: number } }
  * Returns: SSE stream of unfollow progress
  */
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { accounts, furious = false } = body
+  const { accounts, furious = false, startFrom } = body
 
   if (!Array.isArray(accounts) || accounts.length === 0) {
     return new Response(JSON.stringify({ error: "No accounts provided" }), {
@@ -64,10 +64,21 @@ export async function POST(req: NextRequest) {
   const args = [join(scriptsDir, "unfollow-brave.mjs"), tmpFile]
   if (furious) args.push("-f")
 
+  // Handle start-from options
+  if (startFrom?.type === "username" && startFrom.value) {
+    args.push("-u", startFrom.value)
+  } else if (startFrom?.type === "number" && startFrom.value > 0) {
+    args.push("-n", String(startFrom.value))
+  } else {
+    // Start from first account — delete stale progress file
+    const progressFile = join(scriptsDir, ".brave-unfollow-progress.json")
+    try { if (existsSync(progressFile)) unlinkSync(progressFile) } catch {}
+  }
+
+  // Spawn WITHOUT shell to avoid spaces-in-path issues (e.g. "New folder")
   const child = spawn("node", args, {
     cwd: process.cwd(),
     stdio: ["pipe", "pipe", "pipe"],
-    shell: true,
   })
 
   const processId = randomUUID()

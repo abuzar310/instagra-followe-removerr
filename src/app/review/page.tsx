@@ -38,6 +38,10 @@ export default function ReviewPage() {
   const [unfollowTab, setUnfollowTab] = useState<"manual" | "auto">("manual");
   const [copied, setCopied] = useState(false);
   const [unfollowAccounts, setUnfollowAccounts] = useState<{ username: string; full_name?: string; profile_pic_url?: string }[]>([]);
+  const [furiousMode, setFuriousMode] = useState(false);
+  const [startFrom, setStartFrom] = useState<"first" | { type: "username"; value: string } | { type: "number"; value: number }>("first");
+  const [startFromUsername, setStartFromUsername] = useState("");
+  const [startFromNumber, setStartFromNumber] = useState("");
   const { state: unfollowState, start: startUnfollow, stop: stopUnfollow, reset: resetUnfollow } = useUnfollowStream();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -782,13 +786,105 @@ export default function ReviewPage() {
                     </div>
                   )}
 
+                  {/* Start From options (only when idle) */}
+                  {unfollowState.status === "idle" && (
+                    <div className="bg-[#121214] rounded-lg p-3 mb-3 text-left space-y-2.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#52525b]">Start From</p>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="startFrom"
+                          className="accent-[#6366f1]"
+                          checked={startFrom === "first"}
+                          onChange={() => setStartFrom("first")}
+                        />
+                        <span className="text-xs text-[#a1a1aa]">First account</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="startFrom"
+                          className="accent-[#6366f1]"
+                          checked={startFrom !== "first" && startFrom.type === "username"}
+                          onChange={() => { setStartFrom({ type: "username", value: startFromUsername }); }}
+                        />
+                        <span className="text-xs text-[#a1a1aa]">From username: </span>
+                        <input
+                          type="text"
+                          placeholder="@username"
+                          className="input text-xs py-1 px-2 w-28"
+                          value={startFromUsername}
+                          onClick={() => setStartFrom({ type: "username", value: startFromUsername })}
+                          onChange={(e) => {
+                            setStartFromUsername(e.target.value)
+                            setStartFrom({ type: "username", value: e.target.value })
+                          }}
+                        />
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="startFrom"
+                          className="accent-[#6366f1]"
+                          checked={startFrom !== "first" && startFrom.type === "number"}
+                          onChange={() => { const n = parseInt(startFromNumber) || 1; setStartFrom({ type: "number", value: n }); }}
+                        />
+                        <span className="text-xs text-[#a1a1aa]">From account #: </span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={unfollowCount}
+                          placeholder="1"
+                          className="input text-xs py-1 px-2 w-20"
+                          value={startFromNumber}
+                          onClick={() => { const n = parseInt(startFromNumber) || 1; setStartFrom({ type: "number", value: n }); }}
+                          onChange={(e) => {
+                            setStartFromNumber(e.target.value)
+                            const n = parseInt(e.target.value) || 1
+                            setStartFrom({ type: "number", value: n })
+                          }}
+                        />
+                        <span className="text-[10px] text-[#52525b]">/ {unfollowCount}</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Furious mode toggle (always visible) */}
+                  <label className="flex items-center justify-center gap-2 mb-3 cursor-pointer select-none">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={furiousMode}
+                        onChange={(e) => {
+                          const newVal = e.target.checked
+                          setFuriousMode(newVal)
+                          // If running, restart with new setting (progress is saved)
+                          if (unfollowState.status === "running") {
+                            stopUnfollow()
+                            setTimeout(() => startUnfollow(unfollowAccounts, newVal, startFrom), 500)
+                          }
+                        }}
+                      />
+                      <div className={`w-9 h-5 rounded-full transition-colors ${furiousMode ? 'bg-[#ec4899]' : 'bg-[#27272a]'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform mt-0.5 ${furiousMode ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                      </div>
+                    </div>
+                    <span className={`text-xs font-medium ${furiousMode ? 'text-[#ec4899]' : 'text-[#52525b]'}`}>
+                      🔥 Furious Mode — {furiousMode ? 'faster pace' : 'normal pace'}
+                    </span>
+                  </label>
+
                   {/* Action buttons */}
                   <div className="flex gap-2">
                     {unfollowState.status === "idle" && (
                       <>
                         <button
                           className="btn flex-1 justify-center bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-white hover:from-[#db2777] hover:to-[#7c3aed]"
-                          onClick={() => startUnfollow(unfollowAccounts)}
+                          onClick={() => startUnfollow(unfollowAccounts, furiousMode, startFrom)}
                         >
                           <Rocket size={14} /> Start Auto-Run
                         </button>
@@ -812,7 +908,7 @@ export default function ReviewPage() {
                       <>
                         <button
                           className="btn btn-primary flex-1 justify-center"
-                          onClick={() => { resetUnfollow(); startUnfollow(unfollowAccounts); }}
+                          onClick={() => { resetUnfollow(); startUnfollow(unfollowAccounts, furiousMode, startFrom); }}
                         >
                           <Rocket size={14} /> Run Again
                         </button>

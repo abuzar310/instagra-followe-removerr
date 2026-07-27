@@ -69,7 +69,7 @@ export function useUnfollowStream() {
     return updates
   }, [])
 
-  const start = useCallback(async (accounts: { username: string }[], furious = false) => {
+  const start = useCallback(async (accounts: { username: string }[], furious = false, startFrom?: "first" | { type: "username"; value: string } | { type: "number"; value: number }) => {
     // Abort any existing stream
     if (abortRef.current) {
       abortRef.current.abort()
@@ -88,7 +88,7 @@ export function useUnfollowStream() {
       const response = await fetch("/api/unfollow/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ accounts, furious }),
+        body: JSON.stringify({ accounts, furious, startFrom }),
         signal: abort.signal,
       })
 
