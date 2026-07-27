@@ -1,20 +1,24 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useData } from "@/hooks/useData";
 import {
   applyFilters, getDefaultFilters, exportCSV, exportJSON, addToWhitelist, removeFromWhitelist,
 } from "@/lib/store";
-import type { ReviewFilters, Follower } from "@/lib/types";
+import type { ReviewFilters, Follower, AiAnalysis } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 import {
   Users, Search, ArrowUpDown, CheckCircle, XCircle, ChevronLeft, ChevronRight,
-  Download, MoreHorizontal, AlertTriangle, Eye, X, Rocket, Copy, Terminal,
+  Download, MoreHorizontal, AlertTriangle, Eye, X, Rocket, Copy, Terminal, Sparkles,
 } from "lucide-react";
 import { downloadFile } from "@/lib/utils";
 import { useUnfollowStream } from "@/hooks/useUnfollowStream";
 
 const PER_PAGE = 50;
+
+const AI_API_KEY_STORAGE = "ifr_ai_api_key";
+const AI_API_URL_STORAGE = "ifr_ai_api_url";
+const AI_MODEL_STORAGE = "ifr_ai_model";
 
 const SORT_OPTIONS: { value: ReviewFilters["sortField"]; label: string }[] = [
   { value: "suspicion_score", label: "Score" },
@@ -42,6 +46,8 @@ export default function ReviewPage() {
   const [startFrom, setStartFrom] = useState<"first" | { type: "username"; value: string } | { type: "number"; value: number }>("first");
   const [startFromUsername, setStartFromUsername] = useState("");
   const [startFromNumber, setStartFromNumber] = useState("");
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiResult, setAiResult] = useState<AiAnalysis | null>(null);
   const { state: unfollowState, start: startUnfollow, stop: stopUnfollow, reset: resetUnfollow } = useUnfollowStream();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -114,9 +120,62 @@ export default function ReviewPage() {
     }
   };
 
+  const handleAiAnalyze = useCallback(async (f: Follower) => {
+    setAiAnalyzing(true);
+    setAiResult(null);
+    try {
+      const apiKey = localStorage.getItem(AI_API_KEY_STORAGE) || "";
+      const apiUrl = localStorage.getItem(AI_API_URL_STORAGE) || "https://api.kintio.com";
+      const model = localStorage.getItem(AI_MODEL_STORAGE) || "claude-3-haiku-20240307";
+
+      const res = await fetch("/api/ai/analyze", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          apiKey,
+          apiUrl,
+          model,
+          profile: {
+            username: f.username,
+            full_name: f.full_name,
+            biography: f.biography,
+            followers_count: f.followers_count,
+            following_count: f.following_count,
+            posts_count: f.posts_count,
+            has_profile_pic: f.has_profile_pic,
+            is_private: f.is_private,
+            is_verified: f.is_verified,
+            is_business: f.is_business,
+            account_age_days: f.account_age_days,
+            external_url: f.external_url,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.verdict) {
+        const analysis: AiAnalysis = {
+          verdict: data.verdict,
+          confidence: data.confidence,
+          reasoning: data.reasoning,
+          analyzed_at: new Date().toISOString(),
+        };
+        setAiResult(analysis);
+        updateFollower(f.id, { ai_analysis: analysis });
+      } else {
+        setAiResult({ verdict: "unknown", confidence: 0, reasoning: data.error || "Analysis failed", analyzed_at: new Date().toISOString() });
+      }
+    } catch (e: any) {
+      setAiResult({ verdict: "unknown", confidence: 0, reasoning: e.message || "Network error", analyzed_at: new Date().toISOString() });
+    } finally {
+      setAiAnalyzing(false);
+    }
+  }, [updateFollower]);
+
   const openPreview = (f: Follower) => {
     setPreview(f);
     setNotesDraft(f.notes);
+    setAiResult(f.ai_analysis || null);
   };
 
   const saveNotes = () => {
@@ -632,6 +691,83 @@ export default function ReviewPage() {
                   </p>
                 </div>
               )}
+
+              {/* AI Analysis Section */}
+              <div className="rounded-xl border border-[rgba(99,102,241,0.15)] overflow-hidden">
+                {/* AI Analyze Button (only show if no result yet) */}
+                {!aiResult && !aiAnalyzing && (
+                  <button
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-[#818cf8] hover:bg-[rgba(99,102,241,0.06)] transition-colors"
+                    onClick={() => handleAiAnalyze(preview)}
+                  >
+                    <Sparkles size={14} />
+                    AI Analyze This Profile
+                  </button>
+                )}
+
+                {/* Loading state */}
+                {aiAnalyzing && (
+                  <div className="p-3 flex items-center gap-2.5">
+                    <svg className="animate-spin h-4 w-4 text-[#818cf8] shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span className="text-xs text-[#a1a1aa]">🤖 AI is analyzing this profile...</span>
+                  </div>
+                )}
+
+                {/* AI Result */}
+                {aiResult && !aiAnalyzing && (
+                  <div className={`p-3 ${aiResult.verdict === "bot" ? "bg-[rgba(239,68,68,0.06)]" : aiResult.verdict === "suspicious" ? "bg-[rgba(234,179,8,0.06)]" : aiResult.verdict === "real" ? "bg-[rgba(34,197,94,0.06)]" : "bg-[#121214]"}`}>
+                    <div className="flex items-start justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles size={12} className="text-[#818cf8]" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#818cf8]">AI Verdict</span>
+                      </div>
+                      <button
+                        className="text-[10px] text-[#818cf8] hover:underline"
+                        onClick={() => handleAiAnalyze(preview)}
+                      >
+                        Re-analyze
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`text-sm font-bold ${
+                        aiResult.verdict === "bot" ? "text-[#ef4444]" :
+                        aiResult.verdict === "suspicious" ? "text-[#eab308]" :
+                        aiResult.verdict === "real" ? "text-[#22c55e]" :
+                        "text-[#52525b]"
+                      }`}>
+                        {aiResult.verdict === "bot" ? "🤖 Bot" :
+                         aiResult.verdict === "suspicious" ? "⚠️ Suspicious" :
+                         aiResult.verdict === "real" ? "✅ Real Person" :
+                         "❓ Unknown"}
+                      </span>
+                      <div className="flex-1 h-1.5 rounded-full bg-[#27272a] overflow-hidden max-w-[80px]">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${aiResult.confidence}%`,
+                            background: aiResult.confidence >= 70 ? '#ef4444' : aiResult.confidence >= 40 ? '#eab308' : '#22c55e',
+                          }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-mono text-[#52525b]">{aiResult.confidence}%</span>
+                    </div>
+
+                    {aiResult.reasoning && (
+                      <p className="text-[11px] text-[#a1a1aa] leading-relaxed">{aiResult.reasoning}</p>
+                    )}
+
+                    {aiResult.analyzed_at && (
+                      <p className="text-[9px] text-[#52525b] mt-1">
+                        Analyzed {new Date(aiResult.analyzed_at).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Notes */}
               <div>

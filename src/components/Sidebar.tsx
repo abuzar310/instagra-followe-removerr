@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, LayoutDashboard, Users, SlidersHorizontal, Upload, LogIn, UserMinus, ShieldCheck } from "lucide-react";
+import { ChevronRight, LayoutDashboard, Users, SlidersHorizontal, Upload, LogIn, UserMinus, ShieldCheck, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/whitelist", label: "Whitelist", icon: ShieldCheck },
   { href: "/rules", label: "Rules", icon: SlidersHorizontal },
   { href: "/unfollow", label: "Unfollow", icon: UserMinus },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export default function Sidebar({ collapsed }: { collapsed: boolean }) {

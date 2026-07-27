@@ -1,3 +1,10 @@
+export interface AiAnalysis {
+  verdict: "real" | "bot" | "suspicious" | "unknown";
+  confidence: number;
+  reasoning: string;
+  analyzed_at: string;
+}
+
 export interface Follower {
   id: string;
   username: string;
@@ -24,6 +31,9 @@ export interface Follower {
   notes: string;
   created_at: string;
   import_batch: string;
+
+  // AI analysis result (optional)
+  ai_analysis?: AiAnalysis | null;
 }
 
 export interface Rule {
