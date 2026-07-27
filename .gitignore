@@ -48,6 +48,7 @@ scripts/unfollow-results.json
 scripts/to-unfollow.json
 scripts/.unfollow-ui-progress.json
 scripts/.brave-unfollow-progress.json
+scripts/brave-removal-results.json
 
 # Downloaded unfollow lists
 unfollow/

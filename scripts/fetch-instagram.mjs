@@ -99,7 +99,7 @@ async function main() {
 
   if (args[0] === "--help" || args[0] === "-h") {
     console.log("");
-    console.log("Instagram Follower & Following Fetcher");
+    console.log("Instagram Followers Fetcher");
     console.log("");
     console.log("Usage:");
     console.log("  node scripts/fetch-instagram.mjs");
@@ -107,8 +107,7 @@ async function main() {
     console.log("How it works:");
     console.log("  1. Uses YOUR browser's Instagram session (no login needed)");
     console.log("  2. Opens your profile, clicks 'followers', scrolls to load ALL");
-    console.log("  3. Same for 'following'");
-    console.log("  4. Saves follower/following data to scripts/instagram-data.json");
+    console.log("  3. Saves followers list to scripts/instagram-data.json");
     console.log("");
     console.log("Why it works:");
     console.log("  Simulates human scrolling (not API calls) — no rate limits!");
@@ -118,7 +117,7 @@ async function main() {
 
   console.log("");
   console.log("╔══════════════════════════════════════════════╗");
-  console.log("║     Instagram Follower & Following Fetcher   ║");
+  console.log("║        Instagram Followers Fetcher           ║");
   console.log("║        (Human-scrolling mode)                ║");
   console.log("╚══════════════════════════════════════════════╝");
   console.log("");
@@ -239,29 +238,12 @@ async function main() {
   const followers = await scrapListViaUI(page, myUsername, "followers");
   log(`✅ ${followers.length} followers loaded`);
 
-  // ── Fetch following via UI scrolling ──
-  log("");
-  log("📥 Fetching following (scrolling the dialog)...");
-  const following = await scrapListViaUI(page, myUsername, "following");
-  log(`✅ ${following.length} following loaded`);
-
-  // ── Compute non-followbacks ──
-  const followerUsernames = new Set(followers.map((u) => u.username?.toLowerCase()));
-  const nonFollowbacksByName = following.filter((u) => !followerUsernames.has(u.username?.toLowerCase()));
-  const nonFollowbackPct = following.length > 0
-    ? Math.round((nonFollowbacksByName.length / following.length) * 100)
-    : 0;
-
   // ── Save results ──
   const result = {
     followers,
-    following,
-    nonFollowbacks: nonFollowbacksByName,
     followersCount: followers.length,
-    followingCount: following.length,
-    nonFollowbackCount: nonFollowbacksByName.length,
     fetchedAt: new Date().toISOString(),
-    method: "ui-scroll",
+    method: "ui-search",
   };
 
   writeFileSync(OUTPUT_FILE, JSON.stringify(result, null, 2));
@@ -272,9 +254,7 @@ async function main() {
   console.log("║                 ✅ COMPLETE!                 ║");
   console.log("╚══════════════════════════════════════════════╝");
   console.log("");
-  console.log(`   📊 Followers:     ${followers.length.toLocaleString()}`);
-  console.log(`   📊 Following:     ${following.length.toLocaleString()}`);
-  console.log(`   🚩 Not following  ${nonFollowbacksByName.length.toLocaleString()} back (${nonFollowbackPct}%)`);
+  console.log(`   📊 Followers: ${followers.length.toLocaleString()}`);
   console.log("");
   console.log(`   File: ${OUTPUT_FILE}`);
   console.log("");
@@ -348,129 +328,142 @@ async function scrapListViaUI(page, myUsername, kind) {
     return await fallbackFetchList(page, myUsername, kind);
   }
 
-  // Extract items via scrolling
-  const items = await scrollAndCollect(page, kindLabel);
+  // Extract items via search (scrolling is often glitchy, search works reliably)
+  const items = await searchAndCollect(page, kindLabel);
   return items;
 }
 
-// ── Scroll the dialog and collect user data ──
+// ── Search the dialog by alphabet + scroll within each letter's results ──
+// Instagram's dialog scroll can be glitchy on the full list, but after typing
+// a letter in the search box, it filters down to a manageable set. This types
+// each character (a-z, 0-9), then SCROLLS within those filtered results to
+// capture ALL matching users — not just the visible ones.
 
-async function scrollAndCollect(page, kindLabel) {
-  const MAX_SCROLLS = 200;
-  const SCROLL_WAIT_MS = 2500; // Wait 2.5s per scroll (human-like)
-  
-  let prevCount = 0;
-  let sameCountRounds = 0;
+async function searchAndCollect(page, kindLabel) {
+  const CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const SEARCH_WAIT_MS = 2500;
+  const MAX_SCROLLS = 50;
+  const SCROLL_WAIT_MS = 2000;
   const allItems = [];
   const seen = new Set();
 
-  log(`   🔄 Scrolling through ${kindLabel} list...`);
+  log(`   🔍 Searching alphabetically (a-z, 0-9) + scrolling each letter's results...`);
 
-  for (let i = 0; i < MAX_SCROLLS; i++) {
-    // Collect currently visible items
-    const currentItems = await page.evaluate(() => {
-      const dialog = document.querySelector('div[role="dialog"]');
-      if (!dialog) return [];
-      
-      const items = [];
-      // Find all user links within the dialog
-      const links = dialog.querySelectorAll('a[href^="/"]:not([href*="/p/"]):not([href*="/reel/"]):not([href*="/explore/"]):not([href*="/direct/"]):not([href*="/accounts/"])');
-      
-      for (const a of links) {
-        const href = a.getAttribute("href");
-        if (!href || href === "/" || href.split("/").filter(Boolean).length !== 1) continue;
-        
-        const username = href.replace(/^\/|\/$/g, "");
-        if (!username || username.length < 2) continue;
-        
-        // Try to get full name from the element
-        let fullName = "";
-        const spans = a.querySelectorAll("span");
-        for (const s of spans) {
-          const text = s.textContent.trim();
-          // Full name is usually the non-username text
-          if (text && text !== username && text.length > 0 && text.length < 100) {
-            fullName = text;
-            break;
+  const dialog = page.locator('div[role="dialog"]');
+
+  // Find the search input inside the dialog
+  const searchInput = dialog.locator('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])').first();
+
+  for (let c = 0; c < CHARS.length; c++) {
+    const char = CHARS[c];
+
+    // Clear and type the character
+    try {
+      await searchInput.fill("");
+      await new Promise((r) => setTimeout(r, 200));
+      await searchInput.fill(char);
+    } catch {
+      log(`   ⚠️ Could not type '${char.toUpperCase()}' into search — skipping`);
+      continue;
+    }
+
+    // Wait for Instagram to filter results
+    await new Promise((r) => setTimeout(r, SEARCH_WAIT_MS));
+
+    // ── Scroll within this letter's results to load everything ──
+    let sameCountRounds = 0;
+
+    for (let scroll = 0; scroll < MAX_SCROLLS; scroll++) {
+      // Collect currently visible users
+      const currentItems = await page.evaluate(() => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        if (!dialog) return [];
+
+        const items = [];
+        const links = dialog.querySelectorAll('a[href^="/"]:not([href*="/p/"]):not([href*="/reel/"]):not([href*="/explore/"]):not([href*="/direct/"]):not([href*="/accounts/"])');
+
+        for (const a of links) {
+          const href = a.getAttribute("href");
+          if (!href || href === "/" || href.split("/").filter(Boolean).length !== 1) continue;
+
+          const username = href.replace(/^\/|\/$/g, "");
+          if (!username || username.length < 2) continue;
+
+          let fullName = "";
+          const spans = a.querySelectorAll("span");
+          for (const s of spans) {
+            const text = s.textContent.trim();
+            if (text && text !== username && text.length > 0 && text.length < 100) {
+              fullName = text;
+              break;
+            }
+          }
+
+          let profilePic = "";
+          const img = a.querySelector("img");
+          if (img) profilePic = img.getAttribute("src") || "";
+
+          items.push({ username, fullName, profilePic, source: "ui-search" });
+        }
+
+        return items;
+      });
+
+      // Merge new items (deduplicated by username)
+      let newAdded = 0;
+      for (const item of currentItems) {
+        if (!seen.has(item.username)) {
+          seen.add(item.username);
+          allItems.push(item);
+          newAdded++;
+        }
+      }
+
+      // Stop scrolling this letter if no new items in several rounds
+      if (newAdded === 0) {
+        sameCountRounds++;
+        if (sameCountRounds >= 4) break;
+      } else {
+        sameCountRounds = 0;
+      }
+
+      // Scroll the dialog to load more
+      await page.evaluate(() => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        if (!dialog) return;
+
+        const scrollables = dialog.querySelectorAll("div");
+        let bestScroll = null;
+        let bestHeight = 0;
+
+        for (const div of scrollables) {
+          const style = window.getComputedStyle(div);
+          const height = div.scrollHeight;
+          const maxHeight = parseInt(style.maxHeight) || 0;
+          const overflow = style.overflowY || style.overflow || "";
+
+          if (height > bestHeight && (overflow.includes("auto") || overflow.includes("scroll") || maxHeight > 0)) {
+            bestHeight = height;
+            bestScroll = div;
           }
         }
-        
-        // Get profile pic URL if available
-        let profilePic = "";
-        const img = a.querySelector("img");
-        if (img) profilePic = img.getAttribute("src") || "";
 
-        items.push({ username, fullName, profilePic, source: "ui-scroll" });
-      }
-      
-      return items;
-    });
-
-    // Merge new items (deduplicated by username)
-    let newAdded = 0;
-    for (const item of currentItems) {
-      if (!seen.has(item.username)) {
-        seen.add(item.username);
-        allItems.push(item);
-        newAdded++;
-      }
-    }
-
-    // Progress indicator every 20 scrolls
-    if (i % 20 === 0 && i > 0) {
-      const moreStr = newAdded > 0 ? ` (+${newAdded} new)` : "";
-      log(`      ${kindLabel}: ${allItems.length} loaded so far (scroll ${i})${moreStr}`);
-    }
-
-    // Check if we're stuck (no new items after several scrolls)
-    if (newAdded === 0) {
-      sameCountRounds++;
-      if (sameCountRounds >= 5) {
-        log(`      No new ${kindLabel} after 5 scrolls — list fully loaded!`);
-        break;
-      }
-    } else {
-      sameCountRounds = 0;
-    }
-
-    prevCount = currentItems.length;
-
-    // Scroll the dialog (find the scrollable container)
-    await page.evaluate(() => {
-      const dialog = document.querySelector('div[role="dialog"]');
-      if (!dialog) return;
-      
-      // Find the scrollable div inside the dialog
-      const scrollables = dialog.querySelectorAll("div");
-      let bestScroll = null;
-      let bestHeight = 0;
-      
-      for (const div of scrollables) {
-        const style = window.getComputedStyle(div);
-        const height = div.scrollHeight;
-        const maxHeight = parseInt(style.maxHeight) || 0;
-        const overflow = style.overflowY || style.overflow || "";
-        
-        // Look for divs that are tall and overflow (the scrollable container)
-        if (height > bestHeight && (overflow.includes("auto") || overflow.includes("scroll") || maxHeight > 0)) {
-          bestHeight = height;
-          bestScroll = div;
+        if (bestScroll) {
+          bestScroll.scrollTop = bestScroll.scrollHeight;
+        } else {
+          dialog.scrollTop = dialog.scrollHeight;
         }
-      }
-      
-      if (bestScroll) {
-        bestScroll.scrollTop = bestScroll.scrollHeight;
-      } else {
-        // Fallback: try to scroll the dialog itself
-        dialog.scrollTop = dialog.scrollHeight;
-      }
-    });
+      });
 
-    // Wait before next scroll (human-like pause)
-    await new Promise((r) => setTimeout(r, SCROLL_WAIT_MS + Math.random() * 1000));
+      await new Promise((r) => setTimeout(r, SCROLL_WAIT_MS + Math.random() * 500));
+    }
+
+    // Show progress after each letter
+    const letterTotal = allItems.length;
+    log(`      '${char.toUpperCase()}': ${letterTotal} total followers (searched ${c + 1}/${CHARS.length})`);
   }
 
-  log(`      ${kindLabel}: ${allItems.length} total collected`);
+  log(`      ✅ ${kindLabel}: ${allItems.length} total collected via alphabet search + scroll`);
   return allItems;
 }
 

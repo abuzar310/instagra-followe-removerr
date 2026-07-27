@@ -9,8 +9,9 @@ import type { ReviewFilters, Follower } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 import {
   Users, Search, ArrowUpDown, CheckCircle, XCircle, ChevronLeft, ChevronRight,
-  Download, MoreHorizontal, AlertTriangle, Eye, X,
+  Download, MoreHorizontal, AlertTriangle, Eye, X, Rocket, Copy, Terminal,
 } from "lucide-react";
+import { downloadFile } from "@/lib/utils";
 
 const PER_PAGE = 50;
 
@@ -31,6 +32,9 @@ export default function ReviewPage() {
   const [notesDraft, setNotesDraft] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showExport, setShowExport] = useState(false);
+  const [showUnfollowDialog, setShowUnfollowDialog] = useState(false);
+  const [unfollowCount, setUnfollowCount] = useState(0);
+  const [copied, setCopied] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => applyFilters(followers, filters), [followers, filters]);
@@ -112,6 +116,25 @@ export default function ReviewPage() {
     updateFollower(preview.id, { notes: notesDraft });
   };
 
+  const handleStartUnfollow = () => {
+    const approved = followers.filter((f) => f.approved === true);
+    if (approved.length === 0) return;
+
+    // Create JSON in the format expected by unfollow-brave.mjs
+    const data = approved.map((f) => ({
+      username: f.username,
+      full_name: f.full_name,
+      profile_pic_url: f.profile_pic_url,
+    }));
+
+    // Download the file using the existing helper
+    downloadFile(JSON.stringify(data, null, 2), "to-unfollow.json", "application/json");
+
+    setUnfollowCount(approved.length);
+    setCopied(false);
+    setShowUnfollowDialog(true);
+  };
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -134,6 +157,9 @@ export default function ReviewPage() {
 
   const isEmpty = followers.length === 0;
   const reviewedCount = followers.filter((f) => f.reviewed).length;
+  const approvedCount = followers.filter((f) => f.approved === true).length;
+  const rejectedCount = followers.filter((f) => f.approved === false).length;
+  const pendingCount = followers.length - reviewedCount;
 
   const scoreColor = (score: number) =>
     score >= 60 ? "#ef4444" : score >= 30 ? "#eab308" : "#22c55e";
@@ -158,7 +184,11 @@ export default function ReviewPage() {
         <div>
           <h1 className="text-xl font-semibold text-white">Review Queue</h1>
           <p className="text-sm text-[#a1a1aa] mt-0.5">
-            {followers.length.toLocaleString()} profiles · {reviewedCount.toLocaleString()} reviewed · {filtered.length.toLocaleString()} shown
+            <span className="font-medium text-white">{followers.length.toLocaleString()}</span> profiles
+            · <span className="text-[#a1a1aa]">{reviewedCount.toLocaleString()}</span> reviewed
+            · <span className="text-[#22c55e]">✓ {approvedCount.toLocaleString()}</span>
+            · <span className="text-[#ef4444]">✗ {rejectedCount.toLocaleString()}</span>
+            · <span className="text-[#52525b]">{pendingCount.toLocaleString()}</span> pending
           </p>
         </div>
         <div className="flex gap-2">
@@ -197,6 +227,85 @@ export default function ReviewPage() {
               </button>
             </>
           )}
+
+          {/* Start Unfollow button */}
+          {followers.filter((f) => f.approved === true).length > 0 && (
+            <button className="btn text-sm bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-white hover:from-[#db2777] hover:to-[#7c3aed] shadow-lg shadow-[#ec4899]/20" onClick={handleStartUnfollow}>
+              <Rocket size={14} /> Start Unfollow
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Progress Bars */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Review Progress */}
+        <div className="card p-3.5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#a1a1aa]">
+              <CheckCircle size={12} className="inline mr-1 text-[#22c55e]" />
+              Review Progress
+            </span>
+            <span className="text-xs font-mono text-[#52525b]">
+              {reviewedCount.toLocaleString()} / {followers.length.toLocaleString()}
+              <span className="text-[#a1a1aa]"> · {followers.length > 0 ? Math.round((reviewedCount / followers.length) * 100) : 0}%</span>
+            </span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-[#27272a] overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500 ease-out"
+              style={{
+                width: `${followers.length > 0 ? (reviewedCount / followers.length) * 100 : 0}%`,
+                background: 'linear-gradient(90deg, #22c55e, #16a34a)',
+              }}
+            />
+          </div>
+          <div className="flex justify-between mt-1.5">
+            <span className="text-[10px] text-[#52525b]">
+              <span className="text-[#22c55e]">✓ {approvedCount.toLocaleString()}</span>
+              <span className="mx-1">·</span>
+              <span className="text-[#ef4444]">✗ {rejectedCount.toLocaleString()}</span>
+            </span>
+            <span className="text-[10px] text-[#52525b]">{pendingCount.toLocaleString()} pending</span>
+          </div>
+        </div>
+
+        {/* Unfollow Progress */}
+        <div className="card p-3.5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#a1a1aa]">
+              <Rocket size={12} className="inline mr-1 text-[#8b5cf6]" />
+              Approved to Unfollow
+            </span>
+            <span className="text-xs font-mono text-[#52525b]">
+              {approvedCount.toLocaleString()} / {followers.length.toLocaleString()}
+              <span className="text-[#a1a1aa]"> · {followers.length > 0 ? Math.round((approvedCount / followers.length) * 100) : 0}%</span>
+            </span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-[#27272a] overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500 ease-out"
+              style={{
+                width: `${followers.length > 0 ? (approvedCount / followers.length) * 100 : 0}%`,
+                background: 'linear-gradient(90deg, #8b5cf6, #6366f1)',
+              }}
+            />
+          </div>
+          <div className="flex justify-between mt-1.5">
+            <span className="text-[10px] text-[#52525b]">
+              {approvedCount > 0 ? (
+                <>
+                  <Rocket size={10} className="inline mr-0.5 text-[#8b5cf6]" />
+                  <span className="text-[#8b5cf6]">{approvedCount.toLocaleString()}</span> to unfollow
+                </>
+              ) : (
+                <span>Approve accounts to start</span>
+              )}
+            </span>
+            <span className="text-[10px] text-[#52525b]">
+              ~{approvedCount > 0 ? Math.ceil(approvedCount / 357) : 0} session{approvedCount > 357 ? 's' : ''} needed
+            </span>
+          </div>
         </div>
       </div>
 
@@ -475,6 +584,67 @@ export default function ReviewPage() {
         </div>
       )}
 
+      {/* Unfollow Dialog */}
+      {showUnfollowDialog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowUnfollowDialog(false); }}
+        >
+          <div className="card w-full max-w-md p-6 animate-in fade-in zoom-in-95 duration-150 text-center">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#ec4899] to-[#8b5cf6] flex items-center justify-center mx-auto mb-4">
+              <Rocket size={28} className="text-white" />
+            </div>
+
+            <h2 className="text-lg font-semibold text-white mb-1">Ready to Unfollow!</h2>
+            <p className="text-sm text-[#a1a1aa] mb-2">
+              <strong className="text-white text-lg">{unfollowCount}</strong> approved accounts ready to be removed
+            </p>
+
+            <div className="bg-[#121214] rounded-lg p-3 mb-4 text-left">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#52525b]">
+                  <Terminal size={12} className="inline mr-1" />
+                  Run this command
+                </span>
+                <button
+                  className="text-xs text-[#6366f1] hover:text-[#818cf8] flex items-center gap-1"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`node scripts/unfollow-brave.mjs to-unfollow.json`);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                >
+                  <Copy size={12} /> {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <code className="block text-sm text-[#22d3ee] font-mono bg-black/40 rounded p-2 break-all">
+                node scripts/unfollow-brave.mjs to-unfollow.json
+              </code>
+            </div>
+
+            <div className="bg-[#121214] rounded-lg p-3 mb-4 text-left">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#52525b]">
+                🔥 Furious mode (faster, higher risk)
+              </span>
+              <code className="block text-sm text-[#22d3ee] font-mono bg-black/40 rounded p-2 mt-1 break-all">
+                node scripts/unfollow-brave.mjs to-unfollow.json -f
+              </code>
+            </div>
+
+            <div className="text-xs text-[#52525b] mb-5 space-y-1">
+              <p>✅ File <strong className="text-[#a1a1aa]">to-unfollow.json</strong> has been downloaded</p>
+              <p>📂 Make sure to run the command from the <strong className="text-[#a1a1aa]">insta-follower-review</strong> folder</p>
+            </div>
+
+            <div className="flex gap-2">
+              <button className="btn btn-primary flex-1 justify-center" onClick={() => setShowUnfollowDialog(false)}>
+                Got it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Keyboard shortcuts indicator */}
       <div className="fixed bottom-4 right-4 z-40">
         <button
@@ -491,14 +661,4 @@ export default function ReviewPage() {
   );
 }
 
-function downloadFile(content: string, filename: string, mime: string) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+

@@ -7,17 +7,7 @@ import {
 import { Upload, Users, AlertTriangle, CheckCircle, Activity, Database, LogIn, Download } from "lucide-react";
 import Link from "next/link";
 
-function downloadFile(content: string, filename: string, mime: string) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+import { downloadFile } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { followers, batches, stats, loading, clearAll, refresh, backup } = useData();

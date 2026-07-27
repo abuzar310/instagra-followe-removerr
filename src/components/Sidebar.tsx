@@ -14,7 +14,7 @@ const NAV = [
   { href: "/unfollow", label: "Unfollow", icon: UserMinus },
 ];
 
-export default function Sidebar({ collapsed }: { collapsed: boolean; onToggle: () => void }) {
+export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   const path = usePathname();
 
   return (
@@ -29,11 +29,14 @@ export default function Sidebar({ collapsed }: { collapsed: boolean; onToggle: (
             <Link
               key={n.href}
               href={n.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                active ? "bg-white/10 text-white" : "text-white/40 hover:text-white/70 hover:bg-white/5"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative ${
+                active
+                  ? "bg-[rgba(99,102,241,0.1)] text-[#818cf8]"
+                  : "text-white/40 hover:text-white/70 hover:bg-white/5"
               }`}
             >
-              <n.icon size={18} strokeWidth={1.5} />
+              {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-[#6366f1]" />}
+              <n.icon size={18} strokeWidth={active ? 2 : 1.5} />
               {!collapsed && <span>{n.label}</span>}
             </Link>
           );

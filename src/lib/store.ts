@@ -1,13 +1,12 @@
-import type { Follower, Rule, ImportBatch, ReviewFilters, SortField, SortOrder, DashboardStats, InstagramCookies, SchedulerState, UnfollowEntry, UnfollowStatus, WhitelistEntry } from "./types";
+import type { Follower, Rule, ImportBatch, ReviewFilters, SortField, SortOrder, DashboardStats, InstagramCookies, UnfollowEntry, UnfollowStatus, WhitelistEntry } from "./types";
 import { v4 as uuid } from "uuid";
 
 const STORAGE_KEY = "ifr_followers";
 const RULES_KEY = "ifr_rules";
 const BATCHES_KEY = "ifr_batches";
 const IG_COOKIES_KEY = "ifr_ig_cookies";
-const SCHEDULER_KEY = "ifr_scheduler";
-const UNFOLLOW_QUEUE_KEY = "ifr_unfollow_queue";
 const WHITELIST_KEY = "ifr_whitelist";
+const UNFOLLOW_QUEUE_KEY = "ifr_unfollow_queue";
 
 // ── Default rules ──
 const DEFAULT_RULES: Rule[] = [
@@ -39,10 +38,6 @@ function write<T>(key: string, data: T) {
 // ── Followers ──
 export function getFollowers(): Follower[] {
   return read<Follower[]>(STORAGE_KEY, []);
-}
-
-export function getFollowersByBatch(batchId: string): Follower[] {
-  return getFollowers().filter((f) => f.import_batch === batchId);
 }
 
 export function updateFollower(id: string, patch: Partial<Follower>): Follower[] {
@@ -380,20 +375,6 @@ export function importBackup(backup: AppBackup): {
   };
 }
 
-/* ── Instagram Cookies ── */
-
-export function getInstagramCookies(): InstagramCookies | null {
-  return read<InstagramCookies | null>(IG_COOKIES_KEY, null);
-}
-
-export function saveInstagramCookies(cookies: InstagramCookies): void {
-  write(IG_COOKIES_KEY, cookies);
-}
-
-export function clearInstagramCookies(): void {
-  write(IG_COOKIES_KEY, null);
-}
-
 /* ── Unfollow Queue ── */
 
 export function getUnfollowQueue(): UnfollowEntry[] {
@@ -408,30 +389,16 @@ export function clearUnfollowQueue(): void {
   write(UNFOLLOW_QUEUE_KEY, []);
 }
 
-/* ── Scheduler ── */
+/* ── Instagram Cookies ── */
 
-export function getScheduler(): SchedulerState | null {
-  return read<SchedulerState | null>(SCHEDULER_KEY, null);
+export function getInstagramCookies(): InstagramCookies | null {
+  return read<InstagramCookies | null>(IG_COOKIES_KEY, null);
 }
 
-export function saveScheduler(s: SchedulerState): void {
-  write(SCHEDULER_KEY, s);
+export function saveInstagramCookies(cookies: InstagramCookies): void {
+  write(IG_COOKIES_KEY, cookies);
 }
 
-export function clearScheduler(): void {
-  write(SCHEDULER_KEY, null);
-}
-
-export function calculateInterval(totalCount: number, cycleHours: number = 6): { minMs: number; maxMs: number } {
-  if (totalCount <= 0) return { minMs: 60000, maxMs: 120000 };
-  const windowMs = cycleHours * 60 * 60 * 1000;
-  const avgInterval = windowMs / totalCount;
-  const minMs = Math.max(5000, Math.floor(avgInterval * 0.7));
-  const maxMs = Math.floor(avgInterval * 1.3);
-  return { minMs, maxMs };
-}
-
-export function findNonFollowbacks(followers: Follower[], following: Follower[]): Follower[] {
-  const followerSet = new Set(followers.map(f => f.id));
-  return following.filter(f => !followerSet.has(f.id));
+export function clearInstagramCookies(): void {
+  write(IG_COOKIES_KEY, null);
 }

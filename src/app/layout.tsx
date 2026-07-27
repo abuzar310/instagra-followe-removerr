@@ -16,10 +16,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setMobileOpen(false)} />
         )}
         <div className="hidden lg:flex">
-          <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+          <Sidebar collapsed={collapsed} />
         </div>
         <div className={`fixed inset-y-0 left-0 z-50 lg:hidden transition-transform ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-          <Sidebar collapsed={false} onToggle={() => setMobileOpen(false)} />
+          <Sidebar collapsed={false} />
         </div>
         <div className="flex-1 flex flex-col min-h-dvh">
           <header className="h-14 flex items-center gap-3 px-4 border-b border-white/5 bg-[#0a0a0b]/80 backdrop-blur-lg sticky top-0 z-30">

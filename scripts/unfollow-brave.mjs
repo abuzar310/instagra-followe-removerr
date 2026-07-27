@@ -430,6 +430,9 @@ async function main() {
     }
   }
 
+  // ── Furious mode ──
+  const isFurious = args.includes("--furious") || args.includes("-f");
+
   if (!fileArg || args.includes("--help") || args.includes("-h")) {
     console.log(`
 Instagram Brave Remover
@@ -444,9 +447,15 @@ USAGE:
   node scripts/unfollow-brave.mjs <approved-accounts.json> -u <username>
   node scripts/unfollow-brave.mjs <approved-accounts.json> --from <number>
   node scripts/unfollow-brave.mjs <approved-accounts.json> -n <number>
+  node scripts/unfollow-brave.mjs <approved-accounts.json> --furious
+  node scripts/unfollow-brave.mjs <approved-accounts.json> -f
 
   The input JSON file is what you export from the app's Review page.
   Use: Export → JSON — Approved only
+
+FLAGS:
+  --furious, -f    🔥 Furious mode — removes one after another with NO delays.
+                    Use for quick bursts (higher rate-limit risk).
 
 HOW IT WORKS:
   • Opens Brave browser with YOUR profile (you're already logged in)
@@ -462,6 +471,9 @@ Pacing:
   Between each removal: ${Math.round((BETWEEN_ACCOUNT_MS - JITTER_MS) / 1000)}–${Math.round((BETWEEN_ACCOUNT_MS + JITTER_MS) / 1000)} seconds (~5-8/min)
   Per session: ~${SESSION_ACCOUNTS} accounts (~${SESSION_MINUTES} minutes)
   You can run multiple sessions with breaks in between
+
+  🔥 With --furious: no delays, runs as fast as the browser can go
+
 `);
     process.exit(0);
   }
@@ -505,9 +517,18 @@ Pacing:
   console.log("╚══════════════════════════════════════════════╝");
   console.log("");
   console.log(`   🎯 ${profiles.length} accounts to remove`);
-  console.log(`   ⏱ Pace: ~${TARGET_PER_HOUR}/hour (~${Math.round(TARGET_PER_HOUR / 60)}/min) (${Math.round((BETWEEN_ACCOUNT_MS - JITTER_MS) / 1000)}–${Math.round((BETWEEN_ACCOUNT_MS + JITTER_MS) / 1000)}s each)`);
-  console.log(`   📦 Sessions: ~${SESSION_ACCOUNTS} accounts per session`);
+  if (isFurious) {
+    console.log(`   🔥 FURIOUS MODE — no delays! One after another`);
+    console.log(`   ⏱ Pace: as fast as browser/Instagram allows`);
+    console.log(`   ⚠️  Higher risk of rate-limiting! Use with caution.`);
+  } else {
+    console.log(`   ⏱ Pace: ~${TARGET_PER_HOUR}/hour (~${Math.round(TARGET_PER_HOUR / 60)}/min) (${Math.round((BETWEEN_ACCOUNT_MS - JITTER_MS) / 1000)}–${Math.round((BETWEEN_ACCOUNT_MS + JITTER_MS) / 1000)}s each)`);
+    console.log(`   📦 Sessions: ~${SESSION_ACCOUNTS} accounts per session`);
+  }
   console.log(`   💾 Progress saved — resume anytime with --resume`);
+  if (isFurious) {
+    console.log(`   💡 Tip: Use --furious for a quick burst, then let the normal mode pace the rest!`);
+  }
   console.log("");
 
   // ── Resume from progress, specific username, or specific number ──
@@ -629,18 +650,25 @@ Pacing:
   // ── Open Followers dialog ──
   await openFollowersDialog(page, myUsername);
 
+  // ── Furious mode session size ──
+  // In furious mode, run a bigger session since there are no delays
+  const effectiveSessionAccounts = isFurious ? Math.min(100, SESSION_ACCOUNTS * 3) : SESSION_ACCOUNTS;
+
   // ── Removal loop ──
   let i = startIndex;
 
   while (i < profiles.length) {
     const sessionStartAccount = i;
-    const sessionEnd = Math.min(i + SESSION_ACCOUNTS, profiles.length);
+    const sessionEnd = Math.min(i + effectiveSessionAccounts, profiles.length);
     const sessionSize = sessionEnd - sessionStartAccount;
 
     console.log("");
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`   📦 SESSION #${session} — ${sessionSize} accounts`);
+    console.log(`   📦 SESSION #${session} — ${sessionSize} accounts${isFurious ? ' 🔥' : ''}`);
     console.log(`   (${i + 1}–${sessionEnd} of ${profiles.length})`);
+    if (isFurious) {
+      console.log(`   🔥 Furious ON — removing one after another with NO delays`);
+    }
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log("");
 
@@ -706,8 +734,8 @@ Pacing:
       const pct = Math.round((doneInSession / sessionSize) * 100);
       log(`📊 Session #${session}: ${doneInSession}/${sessionSize} (${pct}%)`);
 
-      // Delay before next removal (skip delay for the last one in session)
-      if (i < sessionEnd - 1) {
+      // Delay before next removal (skip delay for the last one in session, or entirely in furious mode)
+      if (i < sessionEnd - 1 && !isFurious) {
         const delay =
           BETWEEN_ACCOUNT_MS -
           JITTER_MS +

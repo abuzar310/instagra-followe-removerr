@@ -32,10 +32,12 @@ body {
   background: #18181b;
   border: 1px solid #27272a;
   border-radius: 12px;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .card:hover {
   background: #1f1f23;
+  border-color: #323238;
 }
 
 .input {
@@ -46,11 +48,16 @@ body {
   font-size: 13px;
   color: #fafafa;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .input:focus {
   border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.input::placeholder {
+  color: #52525b;
 }
 
 .select {
@@ -61,6 +68,11 @@ body {
   font-size: 13px;
   color: #fafafa;
   outline: none;
+  transition: border-color 0.15s;
+}
+
+.select:focus {
+  border-color: #6366f1;
 }
 
 .btn {
@@ -71,9 +83,14 @@ body {
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
   cursor: pointer;
   border: 1px solid transparent;
+  user-select: none;
+}
+
+.btn:active {
+  transform: scale(0.97);
 }
 
 .btn-primary {
