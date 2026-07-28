@@ -409,6 +409,33 @@ export function clearUnfollowQueue(): void {
   write(UNFOLLOW_QUEUE_KEY, []);
 }
 
+/* ── Cross-Check ── */
+
+export function batchUpdateCrossCheck(results: { username: string; status: "verified" | "unfollowed" | "error" }[]): number {
+  const list = getFollowers();
+  const now = new Date().toISOString();
+  let updated = 0;
+  for (const r of results) {
+    const idx = list.findIndex((f) => f.username.toLowerCase() === r.username.toLowerCase());
+    if (idx !== -1) {
+      list[idx].cross_check_status = r.status;
+      list[idx].cross_checked_at = now;
+      updated++;
+    }
+  }
+  write(STORAGE_KEY, list);
+  return updated;
+}
+
+export function clearCrossCheckStatus(): void {
+  const list = getFollowers();
+  for (const f of list) {
+    f.cross_check_status = undefined;
+    f.cross_checked_at = undefined;
+  }
+  write(STORAGE_KEY, list);
+}
+
 /* ── Instagram Cookies ── */
 
 export function getInstagramCookies(): InstagramCookies | null {

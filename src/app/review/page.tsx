@@ -43,6 +43,7 @@ export default function ReviewPage() {
   const [copied, setCopied] = useState(false);
   const [unfollowAccounts, setUnfollowAccounts] = useState<{ username: string; full_name?: string; profile_pic_url?: string }[]>([]);
   const [furiousMode, setFuriousMode] = useState(false);
+  const [skipAlreadyUnfollowed, setSkipAlreadyUnfollowed] = useState(true);
   const [startFrom, setStartFrom] = useState<"first" | { type: "username"; value: string } | { type: "number"; value: number }>("first");
   const [startFromUsername, setStartFromUsername] = useState("");
   const [startFromNumber, setStartFromNumber] = useState("");
@@ -1059,6 +1060,33 @@ export default function ReviewPage() {
                     </div>
                   )}
 
+                  {/* Info card about already-unfollowed check */}
+                  <div className="bg-[rgba(99,102,241,0.06)] border border-[rgba(99,102,241,0.15)] rounded-lg p-3 mb-3 text-left">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-[rgba(99,102,241,0.15)] flex items-center justify-center shrink-0 mt-0.5">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                          <circle cx="9" cy="7" r="4"/>
+                          <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-[#818cf8]">Follower Cross-Check</p>
+                        <p className="text-[11px] text-[#a1a1aa] mt-0.5 leading-relaxed">
+                          Before unfollowing each account, the script checks your live followers list.
+                          If they <strong className="text-[#a1a1aa]">no longer follow you</strong>, they'll be skipped automatically.
+                          This saves unnecessary API calls and keeps your account safe.
+                        </p>
+                        <div className="mt-1.5 flex items-center gap-2 text-[11px] text-[#52525b]">
+                          <span className="text-[#22c55e]">✅ {unfollowCount} approved</span>
+                          <span className="text-[#52525b]">·</span>
+                          <span className="text-[#818cf8]">↪️ Live check on Instagram</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Furious mode toggle (always visible) */}
                   <label className="flex items-center justify-center gap-2 mb-3 cursor-pointer select-none">
                     <div className="relative">
@@ -1085,13 +1113,31 @@ export default function ReviewPage() {
                     </span>
                   </label>
 
+                  {/* Skip already-unfollowed toggle */}
+                  <label className="flex items-center justify-center gap-2 mb-4 cursor-pointer select-none">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={skipAlreadyUnfollowed}
+                        onChange={(e) => setSkipAlreadyUnfollowed(e.target.checked)}
+                      />
+                      <div className={`w-9 h-5 rounded-full transition-colors ${skipAlreadyUnfollowed ? 'bg-[#818cf8]' : 'bg-[#27272a]'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform mt-0.5 ${skipAlreadyUnfollowed ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                      </div>
+                    </div>
+                    <span className={`text-xs font-medium ${skipAlreadyUnfollowed ? 'text-[#818cf8]' : 'text-[#52525b]'}`}>
+                      ↪️ Skip already unfollowed — {skipAlreadyUnfollowed ? 'tracked separately' : 'counted as skipped'}
+                    </span>
+                  </label>
+
                   {/* Action buttons */}
                   <div className="flex gap-2">
                     {unfollowState.status === "idle" && (
                       <>
                         <button
                           className="btn flex-1 justify-center bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-white hover:from-[#db2777] hover:to-[#7c3aed]"
-                          onClick={() => startUnfollow(unfollowAccounts, furiousMode, startFrom)}
+                          onClick={() => startUnfollow(unfollowAccounts, furiousMode, startFrom, skipAlreadyUnfollowed)}
                         >
                           <Rocket size={14} /> Start Auto-Run
                         </button>
@@ -1115,7 +1161,7 @@ export default function ReviewPage() {
                       <>
                         <button
                           className="btn btn-primary flex-1 justify-center"
-                          onClick={() => { resetUnfollow(); startUnfollow(unfollowAccounts, furiousMode, startFrom); }}
+                          onClick={() => { resetUnfollow(); startUnfollow(unfollowAccounts, furiousMode, startFrom, skipAlreadyUnfollowed); }}
                         >
                           <Rocket size={14} /> Run Again
                         </button>

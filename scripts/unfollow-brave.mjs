@@ -433,6 +433,9 @@ async function main() {
   // ── Furious mode ──
   const isFurious = args.includes("--furious") || args.includes("-f");
 
+  // ── Skip accounts that already unfollowed (not in followers list) ──
+  const skipNotFollowing = args.includes("--skip-not-following");
+
   if (!fileArg || args.includes("--help") || args.includes("-h")) {
     console.log(`
 Instagram Brave Remover
@@ -454,8 +457,11 @@ USAGE:
   Use: Export → JSON — Approved only
 
 FLAGS:
-  --furious, -f    🔥 Furious mode — removes one after another with NO delays.
-                    Use for quick bursts (higher rate-limit risk).
+  --furious, -f              🔥 Furious mode — removes one after another with NO delays.
+                              Use for quick bursts (higher rate-limit risk).
+  --skip-not-following       ↪️ Skip accounts that already unfollowed you.
+                              When enabled, accounts not found in your followers
+                              list are counted as "already unfollowed" separately.
 
 HOW IT WORKS:
   • Opens Brave browser with YOUR profile (you're already logged in)
@@ -534,7 +540,7 @@ Pacing:
   // ── Resume from progress, specific username, or specific number ──
   let startIndex = 0;
   let session = 1;
-  let results = { removed: 0, skipped: 0, errors: 0 };
+  let results = { removed: 0, skipped: 0, errors: 0, alreadyUnfollowed: 0 };
 
   // If --from <number> is given, start from that 1-based index
   if (fromNumber !== null) {
@@ -704,8 +710,13 @@ Pacing:
           msg.includes("already removed") ||
           msg.includes("not following")
         ) {
-          log(`${label} ⏭ @${username} — ${msg}`);
-          results.skipped++;
+          if (skipNotFollowing && (msg.includes("not found") || msg.includes("already removed") || msg.includes("not following"))) {
+            log(`${label} ↪️ @${username} — already unfollowed you, skipping`);
+            results.alreadyUnfollowed++;
+          } else {
+            log(`${label} ⏭ @${username} — ${msg}`);
+            results.skipped++;
+          }
           // This is a "not found" scenario — count it towards block detection
           consecutiveNotFound++;
         } else {
@@ -827,7 +838,16 @@ Pacing:
   console.log("╚══════════════════════════════════════════════╝");
   console.log("");
   console.log(`   ✅ ${results.removed} removed`);
-  console.log(`   ⏭ ${results.skipped} skipped (not in your followers)`);
+  if (results.alreadyUnfollowed > 0) {
+    console.log(`   ↪️ ${results.alreadyUnfollowed} already unfollowed you (skipped)`);
+  }
+  if (results.skipped > 0) {
+    if (results.alreadyUnfollowed > 0) {
+      console.log(`   ⏭ ${results.skipped} skipped (other reasons)`);
+    } else {
+      console.log(`   ⏭ ${results.skipped} skipped`);
+    }
+  }
   console.log(`   ❌ ${results.errors} errors`);
   console.log("");
 

@@ -50,6 +50,10 @@ scripts/.unfollow-ui-progress.json
 scripts/.brave-unfollow-progress.json
 scripts/brave-removal-results.json
 
+# Cross-check temp files
+scripts/.check-tmp-*.json
+scripts/.check-followers-progress.json
+
 # Downloaded unfollow lists
 unfollow/
 /to-unfollow.json

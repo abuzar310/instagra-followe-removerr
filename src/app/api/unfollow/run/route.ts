@@ -31,7 +31,7 @@ export function getRunningProcess(): ProcessInfo | null {
  */
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { accounts, furious = false, startFrom } = body
+  const { accounts, furious = false, startFrom, skipAlreadyUnfollowed = false } = body
 
   if (!Array.isArray(accounts) || accounts.length === 0) {
     return new Response(JSON.stringify({ error: "No accounts provided" }), {
@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
   // Spawn the unfollow script
   const args = [join(scriptsDir, "unfollow-brave.mjs"), tmpFile]
   if (furious) args.push("-f")
+  if (skipAlreadyUnfollowed) args.push("--skip-not-following")
 
   // Handle start-from options
   if (startFrom?.type === "username" && startFrom.value) {

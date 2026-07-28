@@ -34,6 +34,10 @@ export interface Follower {
 
   // AI analysis result (optional)
   ai_analysis?: AiAnalysis | null;
+
+  // Cross-check: still following or not?
+  cross_check_status?: "pending" | "verified" | "unfollowed" | "error";
+  cross_checked_at?: string;
 }
 
 export interface Rule {
