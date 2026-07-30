@@ -10,13 +10,15 @@ import {
   Play, StopCircle, Search,
 } from "lucide-react"
 
-type Method = "quick" | "manual" | "script" | "collect"
+type Method = "quick" | "manual" | "script"
+type QuickMode = "api" | "collect"
 type ScriptStep = "script" | "paste" | "done"
 type ConnectStatus = "idle" | "auth" | "fetch" | "import" | "done" | "error"
 
 export default function ConnectPage() {
   const router = useRouter()
   const [method, setMethod] = useState<Method>("quick")
+  const [quickMode, setQuickMode] = useState<QuickMode>("api")
 
   // ── DevTools script state ──
   const [scriptStep, setScriptStep] = useState<ScriptStep>("script")
@@ -49,6 +51,7 @@ export default function ConnectPage() {
     setLogs([])
     setFetchProgress({ phase: "", count: 0 })
     setError("")
+    setQuickMode("api")
   }
 
   // ── Read SSE stream ──
@@ -327,7 +330,6 @@ export default function ConnectPage() {
           { key: "quick" as Method, icon: Zap, label: "Quick Connect", desc: "One click" },
           { key: "manual" as Method, icon: LogIn, label: "Manual Login", desc: "Credentials" },
           { key: "script" as Method, icon: Terminal, label: "DevTools Script", desc: "Advanced" },
-          { key: "collect" as Method, icon: Search, label: "Smart Collect", desc: "No rate limits" },
         ].map((m) => {
           const Icon = m.icon
           const active = method === m.key
@@ -364,18 +366,50 @@ export default function ConnectPage() {
                   </div>
                   <div>
                     <h3 className="text-base font-semibold text-white">Quick Connect</h3>
-                    <p className="text-sm text-[#a1a1aa]">One click — no scripts, no copy-paste</p>
+                    <p className="text-sm text-[#a1a1aa]">Two modes — pick what works for you</p>
                   </div>
+                </div>
+
+                {/* Mode selector */}
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => setQuickMode("api")}
+                    className={`flex-1 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                      quickMode === "api"
+                        ? "bg-[rgba(99,102,241,0.15)] text-[#818cf8] ring-1 ring-[rgba(99,102,241,0.3)]"
+                        : "bg-[#121214] text-[#52525b] hover:text-[#a1a1aa]"
+                    }`}
+                  >
+                    <Zap size={18} />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">API Mode</div>
+                      <div className="text-[11px] opacity-60">Fast — may hit rate limits</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setQuickMode("collect")}
+                    className={`flex-1 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                      quickMode === "collect"
+                        ? "bg-[rgba(99,102,241,0.15)] text-[#818cf8] ring-1 ring-[rgba(99,102,241,0.3)]"
+                        : "bg-[#121214] text-[#52525b] hover:text-[#a1a1aa]"
+                    }`}
+                  >
+                    <Search size={18} />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">Collect Mode</div>
+                      <div className="text-[11px] opacity-60">Alphabet search — no rate limits</div>
+                    </div>
+                  </button>
                 </div>
 
                 <div className="bg-[#121214] rounded-xl p-4 mb-4 space-y-2 text-sm">
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-[rgba(99,102,241,0.1)] text-[#818cf8] flex items-center justify-center text-xs font-bold shrink-0">1</div>
-                    <div><span className="text-white">Click "Connect"</span><span className="text-[#a1a1aa]"> below</span></div>
+                    <div><span className="text-white">Click "Start"</span><span className="text-[#a1a1aa]"> below</span></div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-[rgba(99,102,241,0.1)] text-[#818cf8] flex items-center justify-center text-xs font-bold shrink-0">2</div>
-                    <div><span className="text-white">A browser window opens briefly</span><span className="text-[#a1a1aa]"> — this captures your Instagram session</span></div>
+                    <div><span className="text-white">A browser window opens briefly</span><span className="text-[#a1a1aa]">{quickMode === "collect" ? " — scrolls through each letter (a-z, 0-9) in followers" : " — captures your Instagram session"}</span></div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-[rgba(99,102,241,0.1)] text-[#818cf8] flex items-center justify-center text-xs font-bold shrink-0">3</div>
@@ -386,10 +420,10 @@ export default function ConnectPage() {
                 <div className="flex gap-3">
                   <button
                     className="btn btn-primary"
-                    onClick={() => handleConnect("quick")}
+                    onClick={() => quickMode === "collect" ? handleSmartCollect() : handleConnect("quick")}
                   >
-                    <Zap size={16} />
-                    Quick Connect
+                    {quickMode === "collect" ? <Search size={16} /> : <Zap size={16} />}
+                    {quickMode === "collect" ? "Start Collecting" : "Quick Connect"}
                   </button>
                   {connectStatus === "error" && (
                     <button className="btn btn-ghost" onClick={resetAll}>Dismiss</button>
@@ -657,10 +691,9 @@ export default function ConnectPage() {
       <div className="card p-5">
         <h3 className="text-sm font-semibold text-white/80 mb-2">🔒 How it works</h3>
         <ul className="text-sm text-[#a1a1aa] space-y-1.5 leading-relaxed">
-          <li>• <strong>Quick Connect:</strong> Opens your browser with your real profile — captures your existing Instagram session</li>
+          <li>• <strong>Quick Connect:</strong> Two modes — API (fast) or Collect (alphabet search a-z, no rate limits)</li>
           <li>• <strong>Manual Login:</strong> Fills your credentials in a browser window — handles 2FA automatically</li>
           <li>• <strong>DevTools Script:</strong> Runs in your browser console — most reliable for large accounts</li>
-          <li>• <strong>Smart Collect:</strong> Types each letter (a-z, 0-9) in the followers dialog — no API rate limits, just pure browser automation</li>
           <li>• Nothing is stored on any server — all data stays in your browser's localStorage</li>
         </ul>
       </div>
