@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { spawn } from "child_process"
 import { getScriptPath } from "@/lib/utils"
-import { existsSync, unlinkSync, writeFileSync } from "fs"
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs"
 import { join } from "path"
 import { randomUUID } from "crypto"
 
@@ -58,7 +58,23 @@ export async function POST(_req: NextRequest) {
           if (eventType && eventData) {
             try {
               const parsed = JSON.parse(eventData)
-              send(eventType, parsed)
+
+              // If done event — read the collected data from the temp file
+              if (eventType === "done" && parsed.file) {
+                const scriptsDir = join(process.cwd(), "scripts")
+                const filePath = join(scriptsDir, parsed.file)
+                try {
+                  const saved = readFileSync(filePath, "utf-8")
+                  const followers = JSON.parse(saved)
+                  send("done", { followers, count: followers.length })
+                  // Clean up temp file
+                  try { unlinkSync(filePath) } catch {}
+                } catch (e) {
+                  send("error", { message: `Failed to read collected data: ${e}` })
+                }
+              } else {
+                send(eventType, parsed)
+              }
             } catch {}
           }
         }

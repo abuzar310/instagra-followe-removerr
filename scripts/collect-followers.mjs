@@ -28,8 +28,13 @@
  */
 
 import { chromium } from "playwright";
-import { existsSync } from "fs";
+import { existsSync, writeFileSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { execSync } from "child_process";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const OUTPUT_FILE = join(__dirname, ".smart-collect-output.json");
 
 // ── SSE helpers ──
 function send(type, data) {
@@ -173,12 +178,25 @@ async function main() {
 
   const followers = await smartCollect(page);
 
-  // ── Done ──
+  // ── Save to file (reliable — no stdout buffering issues) ──
+  log(`💾 Saving ${followers.length} followers to file...`);
+  try {
+    writeFileSync(OUTPUT_FILE, JSON.stringify(followers), "utf-8");
+    log(`✅ Saved to ${OUTPUT_FILE}`);
+  } catch (e) {
+    send("error", { message: `Failed to save output file: ${e.message}` });
+    await context.close();
+    process.exit(1);
+  }
+
+  // ── Done — send small payload, no buffering risk ──
   log(`✅ Collected ${followers.length} followers!`);
+  send("done", { count: followers.length, file: ".smart-collect-output.json" });
+
+  // Give stdout a moment to flush
+  await new Promise((r) => setTimeout(r, 300));
   await context.close();
   log("🔒 Browser closed.");
-
-  send("done", { followers, count: followers.length });
 }
 
 // ── Smart Collect: alphabet search + scroll ──
