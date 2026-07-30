@@ -95,10 +95,10 @@ export async function POST(req: NextRequest) {
         try { controller.close() } catch {}
       })
 
+      // On client disconnect: DON'T kill the script — it saves its own progress.
+      // Just close the SSE stream. Script continues independently.
       req.signal.addEventListener("abort", () => {
-        try { child.kill("SIGTERM") } catch {}
-        try { if (existsSync(tmpFile)) unlinkSync(tmpFile) } catch {}
-        runningProcess = null
+        // NOT killing child process — it continues running and saving progress
         try { controller.close() } catch {}
       })
     },
