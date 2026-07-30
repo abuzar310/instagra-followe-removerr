@@ -200,22 +200,28 @@ export async function POST(req: NextRequest) {
           return
         }
 
-        // Get user info
+        // Get user info — with a TIMEOUT so it doesn't hang forever
+        send(controller, "log", { text: "👤 Getting your profile info..." })
         let myUsername = ""
         let userId = ""
 
         try {
-          const info = await page.evaluate(async (appId) => {
-            const csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ""
-            const r = await fetch("https://www.instagram.com/api/v1/users/web_profile_info/", {
-              headers: { "x-ig-app-id": appId, "x-csrftoken": csrf },
-            })
-            const d = await r.json()
-            return { username: d.data?.user?.username || "", id: d.data?.user?.id || "" }
-          }, "936619743392459")
+          const info = await Promise.race([
+            page.evaluate(async (appId) => {
+              const csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ""
+              const r = await fetch("https://www.instagram.com/api/v1/users/web_profile_info/", {
+                headers: { "x-ig-app-id": appId, "x-csrftoken": csrf },
+              })
+              const d = await r.json()
+              return { username: d.data?.user?.username || "", id: d.data?.user?.id || "" }
+            }, "936619743392459"),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 10000)),
+          ]) as any
           myUsername = info.username
           userId = info.id
-        } catch {}
+        } catch {
+          send(controller, "log", { text: "⚠️ API call timed out, falling back to URL detection..." })
+        }
 
         // Fallback: extract from URL
         if (!myUsername) {
@@ -225,9 +231,12 @@ export async function POST(req: NextRequest) {
             myUsername = m[1]
           }
         }
+
+        // Last resort: use ds_user_id cookie — we don't need username for fetch to work
         if (!userId) userId = ds_user_id
 
         // ── 7. Close browser ──
+        send(controller, "log", { text: "🔒 Closing browser..." })
         await context.close()
 
         send(controller, "log", { text: `👤 Logged in as @${myUsername}` })

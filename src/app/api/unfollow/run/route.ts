@@ -3,6 +3,7 @@ import { spawn } from "child_process"
 import { writeFileSync, unlinkSync, existsSync } from "fs"
 import { join } from "path"
 import { randomUUID } from "crypto"
+import { getScriptPath } from "@/lib/utils"
 
 // ── In-memory process tracker (single-user dev mode) ──
 const runningProcesses = new Map<string, {
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
   writeFileSync(tmpFile, JSON.stringify(data, null, 2))
 
   // Spawn the unfollow script
-  const args = [join(scriptsDir, "unfollow-brave.mjs"), tmpFile]
+  const args = [getScriptPath("unfollow-brave.mjs"), tmpFile]
   if (furious) args.push("-f")
   if (skipAlreadyUnfollowed) args.push("--skip-not-following")
 
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
     args.push("-n", String(startFrom.value))
   } else {
     // Start from first account — delete stale progress file
-    const progressFile = join(scriptsDir, ".brave-unfollow-progress.json")
+    const progressFile = getScriptPath(".brave-unfollow-progress.json")
     try { if (existsSync(progressFile)) unlinkSync(progressFile) } catch {}
   }
 

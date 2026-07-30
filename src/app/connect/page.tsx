@@ -130,7 +130,12 @@ export default function ConnectPage() {
         }
       })
 
-      if (!cookies) return
+      if (!cookies) {
+        setError("Authentication failed — no session received. Instagram may have blocked the request or the browser closed too quickly.")
+        setConnectStatus("error")
+        setLogs((prev) => [...prev, "❌ Authentication stream ended without receiving session cookies."])
+        return
+      }
 
       // Step 2: Fetch followers/following
       setConnectStatus("fetch")

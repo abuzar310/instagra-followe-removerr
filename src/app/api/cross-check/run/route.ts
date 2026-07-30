@@ -5,6 +5,7 @@ import { spawn } from "child_process"
 import { writeFileSync, unlinkSync, existsSync } from "fs"
 import { join } from "path"
 import { randomUUID } from "crypto"
+import { getScriptPath } from "@/lib/utils"
 
 // ── In-memory process tracker ──
 let runningProcess: { process: ReturnType<typeof spawn>; filePath: string } | null = null
@@ -32,12 +33,11 @@ export async function POST(req: NextRequest) {
 
   // Write temp JSON file
   const tmpId = randomUUID().slice(0, 8)
-  const scriptsDir = join(process.cwd(), "scripts")
-  const tmpFile = join(scriptsDir, `.check-tmp-${tmpId}.json`)
+  const tmpFile = join(process.cwd(), "scripts", `.check-tmp-${tmpId}.json`)
   writeFileSync(tmpFile, JSON.stringify(followers.map((a: any) => ({ username: a.username })), null, 2))
 
   // Spawn the check script
-  const args = [join(scriptsDir, "check-followers.mjs"), tmpFile]
+  const args = [getScriptPath("check-followers.mjs"), tmpFile]
   const child = spawn("node", args, {
     cwd: process.cwd(),
     stdio: ["pipe", "pipe", "pipe"],
