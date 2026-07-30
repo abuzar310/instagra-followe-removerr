@@ -160,15 +160,15 @@ export function importFollowers(raw: Record<string, any>[], filename: string): {
       username: r.username || r.user || r.handle || `user_${Math.random().toString(36).slice(2, 6)}`,
       full_name: r.full_name || r.name || r.fullName || "",
       biography: r.biography || r.bio || r.about || "",
-      followers_count: parseInt(r.followers_count ?? r.followers ?? r.followerCount ?? 0),
+      followers_count: parseInt(r.followers_count ?? r.follower_count ?? r.followers ?? r.followerCount ?? 0),
       following_count: parseInt(r.following_count ?? r.following ?? r.followingCount ?? 0),
-      posts_count: parseInt(r.posts_count ?? r.posts ?? r.mediaCount ?? r.postCount ?? 0),
+      posts_count: parseInt(r.posts_count ?? r.media_count ?? r.posts ?? r.mediaCount ?? r.postCount ?? 0),
       is_private: r.is_private === true || r.isPrivate === true || r.private === true,
       is_verified: r.is_verified === true || r.isVerified === true || r.verified === true,
       // has_anonymous_profile_picture=true means Instagram's default silhouette — not a real pic
       has_profile_pic: r.has_anonymous_profile_picture === true
         ? false
-        : (r.has_profile_pic === true || r.hasProfilePic === true || r.has_profile_picture === true || !!r.profile_pic_url),
+        : (r.has_profile_pic === true || r.has_profile_picture === true || r.hasProfilePic === true || !!r.profile_pic_url),
       profile_pic_url: r.profile_pic_url || r.profilePicUrl || r.avatar || "",
       account_age_days: r.account_age_days ?? r.accountAgeDays ?? null,
       external_url: r.external_url ?? r.externalUrl ?? null,

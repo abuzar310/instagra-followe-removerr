@@ -3,18 +3,14 @@
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { generateScraperScript } from "@/lib/ig-scraper-script"
-import {
-  getFollowers, getWhitelist,
-} from "@/lib/store"
-import type { Follower } from "@/lib/types"
-import { v4 as uuid } from "uuid"
+import { getFollowers } from "@/lib/store"
 import {
   Terminal, Copy, Check, AlertCircle, ArrowRight,
   ChevronDown, ChevronUp, Zap, LogIn, Users, Loader2,
-  Play, StopCircle,
+  Play, StopCircle, Search,
 } from "lucide-react"
 
-type Method = "quick" | "manual" | "script"
+type Method = "quick" | "manual" | "script" | "collect"
 type ScriptStep = "script" | "paste" | "done"
 type ConnectStatus = "idle" | "auth" | "fetch" | "import" | "done" | "error"
 
@@ -184,71 +180,13 @@ export default function ConnectPage() {
         return
       }
 
-      // Process & import same as the DevTools flow
-      const followerIds = new Set(followers.map((u: any) => String(u.pk || u.id)))
-      const nonFollowbacks = following.filter((u: any) => !followerIds.has(String(u.pk || u.id)))
-      let targetProfiles = nonFollowbacks.length > 0 ? nonFollowbacks : following
+      // Use the store's proven import function (handles whitelist, scoring, duplicates)
+      const { importFollowers } = await import("@/lib/store")
+      const importResult = importFollowers(followers, `instagram-${loginMethod}`)
 
-      const whitelist = getWhitelist()
-      const wlIds = new Set(whitelist.map(w => w.id))
-      const wlUsernames = new Set(whitelist.map(w => w.username.toLowerCase()))
-      const beforeWl = targetProfiles.length
-      targetProfiles = targetProfiles.filter((u: any) => {
-        const id = String(u.pk || u.id || "")
-        const username = String(u.username || "").toLowerCase()
-        return !wlIds.has(id) && !wlUsernames.has(username)
-      })
-      const skippedWhitelisted = beforeWl - targetProfiles.length
-
-      const existingIds = new Set(getFollowers().map(f => f.id))
-      targetProfiles = targetProfiles.filter((u: any) => !existingIds.has(String(u.pk || u.id || "")))
-
-      const rules = await import("@/lib/store").then(m => m.getRules())
-      const { scoreFollower } = await import("@/lib/store")
-      const batchId = uuid()
-      const now = new Date().toISOString()
-
-      const mapped: Follower[] = targetProfiles.map((u: any) => {
-        const f: Follower = {
-          id: String(u.pk || uuid()),
-          username: u.username || "",
-          full_name: u.full_name || "",
-          biography: u.biography || "",
-          followers_count: u.follower_count ?? u.followers ?? 0,
-          following_count: u.following_count ?? u.following ?? 0,
-          posts_count: u.media_count ?? u.posts ?? 0,
-          is_private: !!u.is_private,
-          is_verified: !!u.is_verified,
-          has_profile_pic: !!(u.profile_pic_url && u.profile_pic_url.length > 5),
-          profile_pic_url: u.profile_pic_url || "",
-          account_age_days: null,
-          external_url: u.external_url || null,
-          is_business: !!u.is_business,
-          email: u.email || null,
-          phone: u.phone || null,
-          suspicion_score: 0,
-          suspicion_reasons: [],
-          reviewed: false,
-          approved: null,
-          notes: "",
-          created_at: now,
-          import_batch: batchId,
-        }
-        const { score, reasons } = scoreFollower(f, rules)
-        f.suspicion_score = score
-        f.suspicion_reasons = reasons
-        return f
-      })
-
-      const existing = getFollowers()
-      localStorage.setItem("ifr_followers", JSON.stringify([...mapped, ...existing]))
-      const batches = JSON.parse(localStorage.getItem("ifr_batches") || "[]")
-      batches.unshift({ id: batchId, filename: `instagram-${loginMethod}`, count: mapped.length, created_at: now })
-      localStorage.setItem("ifr_batches", JSON.stringify(batches))
-
-      setResult({ followersCount: followers.length, followingCount: following.length, skippedWhitelisted })
+      setResult({ followersCount: followers.length, followingCount: following.length, skippedWhitelisted: importResult.skippedWhitelisted })
       setConnectStatus("done")
-      setLogs((prev) => [...prev, `✅ Done! ${mapped.length} new profiles imported.`])
+      setLogs((prev) => [...prev, `✅ Done! ${importResult.count} new profiles imported.`])
     } catch (err: any) {
       if (err.name !== "AbortError") {
         setError(err.message || "Connection failed")
@@ -268,6 +206,73 @@ export default function ConnectPage() {
     }
   }
 
+  // ── Smart Collect handler ──
+  const handleSmartCollect = async () => {
+    resetAll()
+    setConnectStatus("auth")
+    setError("")
+    setLogs(["🔄 Starting Smart Collect..."])
+
+    const abort = new AbortController()
+    abortRef.current = abort
+
+    try {
+      const res = await fetch("/api/instagram/collect", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+        signal: abort.signal,
+      })
+
+      if (!res.ok) {
+        setError(`Smart Collect failed: HTTP ${res.status}`)
+        setConnectStatus("error")
+        return
+      }
+
+      let collectedData: any = null
+
+      await readStream(res, (type, data) => {
+        if (type === "log") {
+          setLogs((prev) => [...prev.slice(-50), data.text])
+        } else if (type === "progress") {
+          setFetchProgress({ phase: data.letter || "collect", count: data.count })
+        } else if (type === "done") {
+          collectedData = data
+        } else if (type === "error") {
+          setError(data.message)
+          setConnectStatus("error")
+        }
+      })
+
+      if (!collectedData || !collectedData.followers) {
+        setError("Smart Collect returned no data.")
+        setConnectStatus("error")
+        return
+      }
+
+      // Import collected followers
+      setConnectStatus("import")
+      setLogs((prev) => [...prev, `📦 Importing ${collectedData.followers.length} followers...`])
+
+      const { importFollowers } = await import("@/lib/store")
+      const result = importFollowers(collectedData.followers, "smart-collect")
+
+      setResult({
+        followersCount: collectedData.count,
+        followingCount: 0,
+        skippedWhitelisted: result.skippedWhitelisted,
+      })
+      setConnectStatus("done")
+      setLogs((prev) => [...prev, `✅ Done! ${result.count} followers imported.`])
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        setError(err.message || "Smart Collect failed")
+        setConnectStatus("error")
+      }
+    }
+  }
+
   const handlePasteData = async () => {
     setError("")
     setImporting(true)
@@ -282,52 +287,11 @@ export default function ConnectPage() {
     const following = data.following || []
     if (followers.length === 0 && following.length === 0) { setError("0 results."); setImporting(false); return }
 
-    const followerIds = new Set(followers.map((u: any) => String(u.pk || u.id)))
-    const nonFollowbacks = following.filter((u: any) => !followerIds.has(String(u.pk || u.id)))
-    let targetProfiles = nonFollowbacks.length > 0 ? nonFollowbacks : following
+    // Use the store's proven import function (handles whitelist, scoring, duplicates)
+    const { importFollowers } = await import("@/lib/store")
+    const importResult = importFollowers(followers, "instagram-connect")
 
-    const whitelist = getWhitelist()
-    const wlIds = new Set(whitelist.map(w => w.id))
-    const wlUsernames = new Set(whitelist.map(w => w.username.toLowerCase()))
-    const beforeWl = targetProfiles.length
-    targetProfiles = targetProfiles.filter((u: any) => {
-      const id = String(u.pk || u.id || "")
-      const username = String(u.username || "").toLowerCase()
-      return !wlIds.has(id) && !wlUsernames.has(username)
-    })
-    const skippedWhitelisted = beforeWl - targetProfiles.length
-
-    const existingIds = new Set(getFollowers().map(f => f.id))
-    targetProfiles = targetProfiles.filter((u: any) => !existingIds.has(String(u.pk || u.id || "")))
-
-    const rules = await import("@/lib/store").then(m => m.getRules())
-    const { scoreFollower } = await import("@/lib/store")
-    const batchId = uuid()
-    const now = new Date().toISOString()
-
-    const mapped: Follower[] = targetProfiles.map((u: any) => {
-      const f: Follower = {
-        id: String(u.pk || uuid()), username: u.username || "", full_name: u.full_name || "",
-        biography: u.biography || "", followers_count: u.follower_count ?? u.followers ?? 0,
-        following_count: u.following_count ?? u.following ?? 0, posts_count: u.media_count ?? u.posts ?? 0,
-        is_private: !!u.is_private, is_verified: !!u.is_verified,
-        has_profile_pic: !!(u.profile_pic_url && u.profile_pic_url.length > 5),
-        profile_pic_url: u.profile_pic_url || "", account_age_days: null, external_url: u.external_url || null,
-        is_business: !!u.is_business, email: u.email || null, phone: u.phone || null,
-        suspicion_score: 0, suspicion_reasons: [], reviewed: false, approved: null, notes: "",
-        created_at: now, import_batch: batchId,
-      }
-      const { score, reasons } = scoreFollower(f, rules); f.suspicion_score = score; f.suspicion_reasons = reasons
-      return f
-    })
-
-    const existing = getFollowers()
-    localStorage.setItem("ifr_followers", JSON.stringify([...mapped, ...existing]))
-    const batches = JSON.parse(localStorage.getItem("ifr_batches") || "[]")
-    batches.unshift({ id: batchId, filename: "instagram-connect", count: mapped.length, created_at: now })
-    localStorage.setItem("ifr_batches", JSON.stringify(batches))
-
-    setResult({ followersCount: followers.length, followingCount: following.length, skippedWhitelisted })
+    setResult({ followersCount: followers.length, followingCount: following.length, skippedWhitelisted: importResult.skippedWhitelisted })
     setScriptStep("done")
     setImporting(false)
   }
@@ -363,6 +327,7 @@ export default function ConnectPage() {
           { key: "quick" as Method, icon: Zap, label: "Quick Connect", desc: "One click" },
           { key: "manual" as Method, icon: LogIn, label: "Manual Login", desc: "Credentials" },
           { key: "script" as Method, icon: Terminal, label: "DevTools Script", desc: "Advanced" },
+          { key: "collect" as Method, icon: Search, label: "Smart Collect", desc: "No rate limits" },
         ].map((m) => {
           const Icon = m.icon
           const active = method === m.key
@@ -695,6 +660,7 @@ export default function ConnectPage() {
           <li>• <strong>Quick Connect:</strong> Opens your browser with your real profile — captures your existing Instagram session</li>
           <li>• <strong>Manual Login:</strong> Fills your credentials in a browser window — handles 2FA automatically</li>
           <li>• <strong>DevTools Script:</strong> Runs in your browser console — most reliable for large accounts</li>
+          <li>• <strong>Smart Collect:</strong> Types each letter (a-z, 0-9) in the followers dialog — no API rate limits, just pure browser automation</li>
           <li>• Nothing is stored on any server — all data stays in your browser's localStorage</li>
         </ul>
       </div>
